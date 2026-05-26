@@ -2,11 +2,20 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { gerarTokenSchema, parseBody } from "@/lib/validation/schemas";
+import { enforceRateLimit } from "@/lib/rate-limit/check";
 
 export async function POST(req) {
   const guard = await requireAuth();
   if (guard instanceof NextResponse) return guard;
-  const { supabase } = guard;
+  const { user, supabase } = guard;
+
+  const limited = await enforceRateLimit(req, {
+    bucket: "gerar_token",
+    max: 30,
+    windowSec: 60,
+    identifier: user.id,
+  });
+  if (limited) return limited;
 
   const parsed = await parseBody(req, gerarTokenSchema);
   if (parsed instanceof NextResponse) return parsed;

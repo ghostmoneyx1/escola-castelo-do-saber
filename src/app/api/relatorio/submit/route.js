@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { CHECKLIST, RESPOSTAS, QUARTER_LABELS, calcStatus, calcOverall } from "@/lib/relatorio-checklist";
 import { relatorioSubmitSchema, parseBody } from "@/lib/validation/schemas";
+import { enforceRateLimit } from "@/lib/rate-limit/check";
 
 function buildPrompt(student, quarter, year, responses, observations) {
   const quarterLabel = QUARTER_LABELS[quarter];
@@ -81,6 +82,14 @@ async function generateAISynthesis(student, quarter, year, responses, observatio
 }
 
 export async function POST(req) {
+  // Rate limit ANTES de qualquer query/IA — protege banco e fatura Anthropic
+  const limited = await enforceRateLimit(req, {
+    bucket: "relatorio_submit",
+    max: 5,
+    windowSec: 3600,
+  });
+  if (limited) return limited;
+
   const parsed = await parseBody(req, relatorioSubmitSchema);
   if (parsed instanceof NextResponse) return parsed;
   const { token, responses, professor_name, observations } = parsed.data;

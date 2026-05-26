@@ -182,6 +182,15 @@ CREATE TABLE report_tokens (
   UNIQUE(student_id, quarter, year)
 );
 
+-- Rate limit counters (uma linha por chave "bucket:identifier").
+-- Toda escrita passa pela função SQL rate_limit_hit() chamada via service role.
+-- RLS habilitada e SEM policies — anon/authenticated não leem nem escrevem.
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL DEFAULT 0,
+  window_start TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -205,6 +214,7 @@ CREATE INDEX idx_quarterly_reports_year_quarter ON quarterly_reports(year, quart
 CREATE INDEX idx_report_tokens_token ON report_tokens(token);
 CREATE INDEX idx_report_tokens_student ON report_tokens(student_id);
 CREATE INDEX idx_report_tokens_expires_at ON report_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_window_start ON rate_limits(window_start);
 
 -- ============================================
 -- RLS (Row Level Security) - Admin only
@@ -222,6 +232,7 @@ ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE enrollments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quarterly_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
 
 -- Policy: authenticated users have full access (admin-only system)
 CREATE POLICY "Full access for authenticated users" ON units FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
