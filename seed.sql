@@ -241,6 +241,16 @@ INSERT INTO documents (student_id, type, status, created_at) VALUES
   ('a1000000-0000-0000-0000-000000000012','Histórico Escolar',      'Emitido','2026-02-28 10:00:00'),
   ('a1000000-0000-0000-0000-000000000015','Atestado de Matrícula',  'Emitido','2026-02-12 09:00:00');
 
+-- ─── ANALYZE ─────────────────────────────────────────────────
+-- Atualiza estatísticas do planner pós-insert em lote.
+-- Sem isso, pg_class.reltuples fica 0 até autovacuum disparar
+-- (threshold só bate em tabelas grandes), e ferramentas como
+-- Supabase MCP `list_tables` reportam contagem zerada.
+ANALYZE units, subjects, classes, students, guardians, student_guardians,
+        enrollments, grades, attendance, payments, installments,
+        quarterly_reports, report_tokens, documents, contracts,
+        employees, employee_payments;
+
 -- ─── VERIFICAÇÃO ─────────────────────────────────────────────
 SELECT
   (SELECT COUNT(*) FROM units)           AS unidades,

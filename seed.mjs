@@ -350,6 +350,13 @@ async function main() {
   await seedAttendance(students, classes);
   await seedDocuments(students);
 
+  console.log("\n⚠️  Rode ANALYZE no SQL Editor pra atualizar stats do planner:");
+  console.log("    (anon key não tem permissão pra ANALYZE — precisa rodar manual)");
+  console.log("    ANALYZE units, subjects, classes, students, guardians,");
+  console.log("            student_guardians, enrollments, grades, attendance,");
+  console.log("            payments, installments, quarterly_reports, report_tokens,");
+  console.log("            documents, contracts, employees, employee_payments;\n");
+
   console.log("\n✅ Seed concluído com sucesso!\n");
   console.log("Resumo:");
   console.log(`  • ${units.length} unidades`);
