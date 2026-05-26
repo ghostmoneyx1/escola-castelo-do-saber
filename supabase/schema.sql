@@ -141,6 +141,47 @@ CREATE TABLE enrollments (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Relatórios trimestrais (boletim descritivo por aluno/trimestre)
+CREATE TABLE quarterly_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  quarter INTEGER NOT NULL CHECK (quarter BETWEEN 1 AND 4),
+  year INTEGER NOT NULL,
+  responses JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status_academico TEXT,
+  status_frequencia TEXT,
+  status_comportamento TEXT,
+  status_social TEXT,
+  status_autonomia TEXT,
+  status_geral TEXT,
+  sintese TEXT,
+  pontos_fortes TEXT,
+  aspectos_desenvolver TEXT,
+  encaminhamentos TEXT,
+  observations TEXT,
+  professor_name TEXT,
+  filled_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(student_id, quarter, year)
+);
+
+-- Tokens para preenchimento do relatório pelo professor (acesso sem login)
+-- Leitura é feita server-side via SUPABASE_SERVICE_ROLE_KEY na rota
+-- /api/relatorio/[token]. Nenhuma policy pública: anon key não lê esta tabela.
+CREATE TABLE report_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token TEXT UNIQUE NOT NULL,
+  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  quarter INTEGER NOT NULL CHECK (quarter BETWEEN 1 AND 4),
+  year INTEGER NOT NULL,
+  used BOOLEAN DEFAULT false,
+  report_id UUID REFERENCES quarterly_reports(id) ON DELETE SET NULL,
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '30 days'),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(student_id, quarter, year)
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -159,6 +200,11 @@ CREATE INDEX idx_enrollments_student ON enrollments(student_id);
 CREATE INDEX idx_enrollments_year ON enrollments(year);
 CREATE INDEX idx_classes_unit ON classes(unit_id);
 CREATE INDEX idx_classes_year ON classes(year);
+CREATE INDEX idx_quarterly_reports_student ON quarterly_reports(student_id);
+CREATE INDEX idx_quarterly_reports_year_quarter ON quarterly_reports(year, quarter);
+CREATE INDEX idx_report_tokens_token ON report_tokens(token);
+CREATE INDEX idx_report_tokens_student ON report_tokens(student_id);
+CREATE INDEX idx_report_tokens_expires_at ON report_tokens(expires_at);
 
 -- ============================================
 -- RLS (Row Level Security) - Admin only
@@ -174,6 +220,8 @@ ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE enrollments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE quarterly_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE report_tokens ENABLE ROW LEVEL SECURITY;
 
 -- Policy: authenticated users have full access (admin-only system)
 CREATE POLICY "Full access for authenticated users" ON units FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
@@ -187,6 +235,8 @@ CREATE POLICY "Full access for authenticated users" ON attendance FOR ALL USING 
 CREATE POLICY "Full access for authenticated users" ON payments FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Full access for authenticated users" ON documents FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Full access for authenticated users" ON enrollments FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Full access for authenticated users" ON quarterly_reports FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Full access for authenticated users" ON report_tokens FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 -- ============================================
 -- SEED DATA
