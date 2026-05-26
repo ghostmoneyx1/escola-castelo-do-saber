@@ -95,6 +95,39 @@ Required in any environment that runs the app:
 
 The middleware degrades gracefully if env vars are missing (lets the request through unauthenticated), so missing env in dev shows as "no auth gate" rather than an explicit error — verify env when auth behaves unexpectedly.
 
+## Server/Client Component split (RSC pattern)
+
+When converting `/dashboard/*` list pages from full Client Components to
+the Server Component pattern, follow what `dashboard/alunos` and
+`dashboard/turmas` already do:
+
+- **`page.js` is a Server Component.** It calls
+  `await createClient()` from `@/lib/supabase/server`, fetches the
+  initial data (and any aggregates that don't need interactivity), and
+  returns a sibling `<FeatureClient initialX={...} />`. Add
+  `export const dynamic = "force-dynamic"` so the cookies-aware Supabase
+  client doesn't get accidentally cached.
+- **The sibling `feature-client.jsx`** (`"use client"`) receives the
+  prefetched data as a prop, owns all state (filters, search, dialogs),
+  filters in memory when the dataset is small, and triggers
+  `router.refresh()` inside `useTransition` after mutations so the
+  Server Component re-fetches.
+- **Mutations** (delete/insert/update) keep using the browser Supabase
+  client for now. Move to API routes only if a mutation needs to
+  bypass RLS or run server-only logic.
+- **Charts (Recharts) and forms** stay in the Client Component — they
+  rely on hooks and event handlers.
+- **Forms-only pages** (`alunos/novo`, `contratos/novo`, etc.) and
+  pages whose entire UI is a single interactive widget
+  (`chamada/[classId]`) stay as full Client Components; there's no
+  initial data to prefetch.
+
+Pages still on the old pattern (full `"use client"` with `useEffect`
+data fetch) — convert in this priority order: `dashboard/page.js`,
+`boletins`, `financeiro`, `frequencia`, `documentos`, `matriculas`,
+`relatorios`, `relatorios-trimestrais`, `contratos`, `colaboradores`,
+`colaboradores/pagamentos`, and detail pages under `/[id]`.
+
 ## UI text language
 
 Code (identifiers, routes, table names) is English. User-facing strings (page titles, labels, dashboards) are Portuguese (pt-BR). Maintain that split — do not translate identifiers into Portuguese, do not leave English text in views.
