@@ -1,7 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { CHECKLIST, RESPOSTAS, QUARTER_LABELS, calcStatus, calcOverall } from "@/lib/relatorio-checklist";
+import { relatorioSubmitSchema, parseBody } from "@/lib/validation/schemas";
 
 function buildPrompt(student, quarter, year, responses, observations) {
   const quarterLabel = QUARTER_LABELS[quarter];
@@ -80,85 +81,87 @@ async function generateAISynthesis(student, quarter, year, responses, observatio
 }
 
 export async function POST(req) {
-  try {
-    const { token, responses, professor_name, observations } = await req.json();
+  const parsed = await parseBody(req, relatorioSubmitSchema);
+  if (parsed instanceof NextResponse) return parsed;
+  const { token, responses, professor_name, observations } = parsed.data;
 
-    if (!token || !responses) {
-      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
-    }
+  const supabase = createAdminClient();
 
-    const supabase = await createClient();
+  const { data: tokenData, error: tokenError } = await supabase
+    .from("report_tokens")
+    .select("*, students(name, classes(name, grade, shift), units(name))")
+    .eq("token", token)
+    .maybeSingle();
 
-    // Busca o token
-    const { data: tokenData, error: tokenError } = await supabase
-      .from("report_tokens")
-      .select("*, students(name, classes(name, grade, shift), units(name))")
-      .eq("token", token)
-      .single();
-
-    if (tokenError || !tokenData) {
-      return NextResponse.json({ error: "Link inválido ou expirado" }, { status: 404 });
-    }
-
-    if (tokenData.used) {
-      return NextResponse.json({ error: "Este relatório já foi preenchido" }, { status: 409 });
-    }
-
-    const student = tokenData.students;
-    const { student_id, quarter, year } = tokenData;
-
-    // Calcula status
-    const status_academico     = calcStatus("academico",     responses);
-    const status_frequencia    = calcStatus("frequencia",    responses);
-    const status_comportamento = calcStatus("comportamento", responses);
-    const status_social        = calcStatus("social",        responses);
-    const status_autonomia     = calcStatus("autonomia",     responses);
-    const status_geral         = calcOverall(responses);
-
-    // Gera síntese IA
-    const synthesis = await generateAISynthesis(student, quarter, year, responses, observations);
-
-    // Salva o relatório
-    const { data: report, error: reportError } = await supabase
-      .from("quarterly_reports")
-      .insert({
-        student_id,
-        quarter,
-        year,
-        responses,
-        status_academico,
-        status_frequencia,
-        status_comportamento,
-        status_social,
-        status_autonomia,
-        status_geral,
-        observations: observations || null,
-        professor_name: professor_name || null,
-        sintese:              synthesis?.sintese || null,
-        pontos_fortes:        synthesis?.pontos_fortes || null,
-        aspectos_desenvolver: synthesis?.aspectos_desenvolver || null,
-        encaminhamentos:      synthesis?.encaminhamentos || null,
-        filled_at:            new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (reportError) {
-      if (reportError.code === "23505") {
-        return NextResponse.json({ error: "Já existe um relatório deste aluno para este trimestre." }, { status: 409 });
-      }
-      return NextResponse.json({ error: reportError.message }, { status: 500 });
-    }
-
-    // Marca token como usado
-    await supabase
-      .from("report_tokens")
-      .update({ used: true, report_id: report.id })
-      .eq("token", token);
-
-    return NextResponse.json({ success: true, report_id: report.id });
-  } catch (err) {
-    console.error("Erro ao submeter relatório:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  if (tokenError) {
+    console.error("relatorio/submit token lookup:", tokenError);
+    return NextResponse.json({ error: "Erro ao validar link" }, { status: 500 });
   }
+
+  if (!tokenData) {
+    return NextResponse.json({ error: "Link inválido" }, { status: 404 });
+  }
+
+  if (tokenData.used) {
+    return NextResponse.json({ error: "Este relatório já foi preenchido" }, { status: 409 });
+  }
+
+  if (tokenData.expires_at && new Date(tokenData.expires_at).getTime() < Date.now()) {
+    return NextResponse.json({ error: "Link expirado" }, { status: 410 });
+  }
+
+  const student = tokenData.students;
+  const { student_id, quarter, year } = tokenData;
+
+  const status_academico     = calcStatus("academico",     responses);
+  const status_frequencia    = calcStatus("frequencia",    responses);
+  const status_comportamento = calcStatus("comportamento", responses);
+  const status_social        = calcStatus("social",        responses);
+  const status_autonomia     = calcStatus("autonomia",     responses);
+  const status_geral         = calcOverall(responses);
+
+  const synthesis = await generateAISynthesis(student, quarter, year, responses, observations);
+
+  const { data: report, error: reportError } = await supabase
+    .from("quarterly_reports")
+    .insert({
+      student_id,
+      quarter,
+      year,
+      responses,
+      status_academico,
+      status_frequencia,
+      status_comportamento,
+      status_social,
+      status_autonomia,
+      status_geral,
+      observations: observations || null,
+      professor_name: professor_name || null,
+      sintese:              synthesis?.sintese || null,
+      pontos_fortes:        synthesis?.pontos_fortes || null,
+      aspectos_desenvolver: synthesis?.aspectos_desenvolver || null,
+      encaminhamentos:      synthesis?.encaminhamentos || null,
+      filled_at:            new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (reportError) {
+    if (reportError.code === "23505") {
+      return NextResponse.json({ error: "Já existe um relatório deste aluno para este trimestre." }, { status: 409 });
+    }
+    console.error("relatorio/submit insert:", reportError);
+    return NextResponse.json({ error: "Falha ao salvar relatório" }, { status: 500 });
+  }
+
+  const { error: updateError } = await supabase
+    .from("report_tokens")
+    .update({ used: true, report_id: report.id })
+    .eq("token", token);
+
+  if (updateError) {
+    console.error("relatorio/submit mark used:", updateError);
+  }
+
+  return NextResponse.json({ success: true, report_id: report.id });
 }

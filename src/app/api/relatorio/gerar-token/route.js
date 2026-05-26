@@ -1,43 +1,42 @@
-import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
+import { requireAuth } from "@/lib/auth/require-auth";
+import { gerarTokenSchema, parseBody } from "@/lib/validation/schemas";
 
 export async function POST(req) {
-  try {
-    const { student_id, quarter, year } = await req.json();
+  const guard = await requireAuth();
+  if (guard instanceof NextResponse) return guard;
+  const { supabase } = guard;
 
-    if (!student_id || !quarter || !year) {
-      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
-    }
+  const parsed = await parseBody(req, gerarTokenSchema);
+  if (parsed instanceof NextResponse) return parsed;
+  const { student_id, quarter, year } = parsed.data;
 
-    const supabase = await createClient();
-    const token = randomBytes(24).toString("hex");
+  const token = randomBytes(24).toString("hex");
 
-    // Upsert: se já existe token para esse aluno/trimestre/ano, substitui
-    const { data, error } = await supabase
+  const { data, error } = await supabase
+    .from("report_tokens")
+    .upsert(
+      { token, student_id, quarter, year, used: false, report_id: null },
+      { onConflict: "student_id,quarter,year" }
+    )
+    .select("token, used")
+    .single();
+
+  if (error) {
+    const { data: existing } = await supabase
       .from("report_tokens")
-      .upsert(
-        { token, student_id, quarter: Number(quarter), year: Number(year), used: false, report_id: null },
-        { onConflict: "student_id,quarter,year" }
-      )
-      .select()
-      .single();
+      .select("token, used")
+      .eq("student_id", student_id)
+      .eq("quarter", quarter)
+      .eq("year", year)
+      .maybeSingle();
 
-    if (error) {
-      // Se conflito, busca o token existente
-      const { data: existing } = await supabase
-        .from("report_tokens")
-        .select("token, used")
-        .eq("student_id", student_id)
-        .eq("quarter", quarter)
-        .eq("year", year)
-        .single();
-      if (existing) return NextResponse.json({ token: existing.token, used: existing.used });
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    if (existing) return NextResponse.json({ token: existing.token, used: existing.used });
 
-    return NextResponse.json({ token: data.token, used: data.used });
-  } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("relatorio/gerar-token:", error);
+    return NextResponse.json({ error: "Falha ao gerar link" }, { status: 500 });
   }
+
+  return NextResponse.json({ token: data.token, used: data.used });
 }

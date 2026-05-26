@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import {
   CHECKLIST, RESPOSTAS, COLOR_STYLES, QUARTER_LABELS,
 } from "@/lib/relatorio-checklist";
@@ -24,17 +23,20 @@ export default function RelatorioPublicoPage() {
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("report_tokens")
-        .select("*, students(name, classes(name, grade, shift), units(name))")
-        .eq("token", token)
-        .single();
-
-      if (error || !data) { setError("Link inválido ou expirado."); setLoading(false); return; }
-      if (data.used) { setError("Este relatório já foi preenchido."); setLoading(false); return; }
-      setTokenData(data);
-      setLoading(false);
+      try {
+        const res = await fetch(`/api/relatorio/${token}`, { cache: "no-store" });
+        const json = await res.json();
+        if (!res.ok) {
+          setError(json.error || "Link inválido ou expirado.");
+          setLoading(false);
+          return;
+        }
+        setTokenData(json);
+      } catch {
+        setError("Erro ao carregar. Tente novamente.");
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [token]);
