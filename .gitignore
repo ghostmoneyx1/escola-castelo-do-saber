@@ -28,6 +28,9 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# Claude Code — settings.json é compartilhado, settings.local.json é por dev
+.claude/settings.local.json
+
 # vercel
 .vercel
 
