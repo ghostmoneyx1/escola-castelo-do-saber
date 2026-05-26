@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/auth/require-auth";
 
-export async function GET(request, { params }) {
+export async function GET(_request, { params }) {
+  const guard = await requireAuth();
+  if (guard instanceof NextResponse) return guard;
+  const { supabase } = guard;
+
   const { classId } = await params;
-
-  const supabase = createAdminClient();
 
   const [classRes, studentsRes] = await Promise.all([
     supabase

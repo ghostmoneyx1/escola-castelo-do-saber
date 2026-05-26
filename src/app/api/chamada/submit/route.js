@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/auth/require-auth";
+import { chamadaSubmitSchema, parseBody } from "@/lib/validation/schemas";
 
 export async function POST(request) {
-  const body = await request.json();
-  const { class_id, date, attendance } = body;
+  const guard = await requireAuth();
+  if (guard instanceof NextResponse) return guard;
+  const { supabase } = guard;
 
-  if (!class_id || !date || !attendance) {
-    return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
-  }
+  const parsed = await parseBody(request, chamadaSubmitSchema);
+  if (parsed instanceof NextResponse) return parsed;
+  const { class_id, date, attendance } = parsed.data;
 
-  const supabase = createAdminClient();
-
-  // Delete existing records for this class+date, then re-insert (same logic do painel)
   await supabase
     .from("attendance")
     .delete()
@@ -28,7 +27,8 @@ export async function POST(request) {
   if (records.length > 0) {
     const { error } = await supabase.from("attendance").insert(records);
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("chamada/submit insert:", error);
+      return NextResponse.json({ error: "Falha ao salvar chamada" }, { status: 500 });
     }
   }
 
