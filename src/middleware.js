@@ -36,14 +36,8 @@ export async function middleware(request) {
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    const path = request.nextUrl.pathname;
-
-    if (!user && !path.startsWith("/login") && !path.startsWith("/auth")) {
+    if (!user) {
       return NextResponse.redirect(new URL("/login", request.url));
-    }
-
-    if (user && path.startsWith("/login")) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
     return response;
@@ -55,6 +49,9 @@ export async function middleware(request) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|logo.png|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Roda só em rotas HTML autenticáveis.
+    // Exclui: /api/* (cada route handler chama requireAuth), /relatorio/[token]
+    // (acesso público por token, sem login), /login, /auth/*, assets estáticos.
+    "/((?!api|relatorio|login|auth|_next/static|_next/image|favicon.ico|logo.png|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
