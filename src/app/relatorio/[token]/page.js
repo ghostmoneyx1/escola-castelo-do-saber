@@ -114,7 +114,7 @@ export default function RelatorioPublicoPage() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground font-medium">Escola Castelo do Saber</p>
-            <p className="text-sm font-bold text-foreground">Avaliação Trimestral</p>
+            <p className="text-sm font-bold text-foreground">Avaliação Semestral</p>
           </div>
           <div className="ml-auto text-right">
             <p className="text-xs text-muted-foreground">{QUARTER_LABELS[tokenData.quarter]} / {tokenData.year}</p>

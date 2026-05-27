@@ -65,7 +65,7 @@ export default function RelatoriosTrimestraisPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Relatórios Trimestrais" subtitle="Acompanhamento do desempenho por aluno">
+      <PageHeader title="Relatórios Semestrais" subtitle="Acompanhamento do desempenho por aluno">
         <Button asChild size="sm">
           <Link href="/dashboard/relatorios-trimestrais/novo">
             <Plus className="h-4 w-4 mr-1.5" /> Gerar Link
@@ -102,8 +102,8 @@ export default function RelatoriosTrimestraisPage() {
         <Select value={quarterFilter} onValueChange={setQuarterFilter}>
           <SelectTrigger className="h-9 w-[170px]"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="Todos">Todos os trimestres</SelectItem>
-            {[1,2,3,4].map(q => <SelectItem key={q} value={String(q)}>{QUARTER_LABELS[q]}</SelectItem>)}
+            <SelectItem value="Todos">Todos os semestres</SelectItem>
+            {[1,2].map(q => <SelectItem key={q} value={String(q)}>{QUARTER_LABELS[q]}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -135,12 +135,12 @@ export default function RelatoriosTrimestraisPage() {
                 <thead>
                   <tr className="bg-muted/50 border-b border-border">
                     <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-5 py-3">Aluno</th>
-                    <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-5 py-3">Trimestre</th>
+                    <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-5 py-3">Semestre</th>
                     <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-5 py-3">Acadêmico</th>
                     <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-5 py-3">Frequência</th>
                     <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-5 py-3">Comportamento</th>
                     <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-5 py-3">Social</th>
-                    <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-5 py-3">Autonomia</th>
+                    <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-5 py-3">Evolução</th>
                     <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-5 py-3">Geral</th>
                     <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-5 py-3">IA</th>
                     <th className="px-5 py-3 w-[80px]"></th>

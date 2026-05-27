@@ -31,7 +31,7 @@ ${lines.join("\n")}
 Responda EXATAMENTE neste formato:
 
 <SINTESE>
-Em 2 a 3 frases, resuma como foi o desempenho geral do estudante neste trimestre. Seja direto e claro.
+Em 2 a 3 frases, resuma como foi o desempenho geral do estudante neste semestre. Seja direto e claro.
 </SINTESE>
 
 <PONTOS_FORTES>
@@ -157,7 +157,7 @@ export async function POST(req) {
 
   if (reportError) {
     if (reportError.code === "23505") {
-      return NextResponse.json({ error: "Já existe um relatório deste aluno para este trimestre." }, { status: 409 });
+      return NextResponse.json({ error: "Já existe um relatório deste aluno para este semestre." }, { status: 409 });
     }
     console.error("relatorio/submit insert:", reportError);
     return NextResponse.json({ error: "Falha ao salvar relatório" }, { status: 500 });

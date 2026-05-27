@@ -15,76 +15,76 @@ export const RESPOSTA_LABELS = {
   nao_observado:  { label: "Não Observado",  bg: "bg-slate-50 border-slate-200",     text: "text-slate-500" },
 };
 
-// ── Checklist completo (31 perguntas, 5 categorias) ───────────────────────────
+// ── Checklist completo (30 perguntas, 5 categorias) ───────────────────────────
 export const CHECKLIST = [
   {
     id: "academico",
-    label: "Desempenho Acadêmico",
-    emoji: "📚",
+    label: "Aprendizagem e Evolução Acadêmica",
+    emoji: "📘",
     color: "blue",
     items: [
-      { id: "acad_1", label: "Demonstra compreensão consistente dos conteúdos trabalhados?" },
-      { id: "acad_2", label: "Apresenta evolução no processo de aprendizagem ao longo do trimestre?" },
-      { id: "acad_3", label: "Consegue interpretar enunciados e realizar atividades com autonomia?" },
-      { id: "acad_4", label: "Aplica os conhecimentos adquiridos em novas situações?" },
-      { id: "acad_5", label: "Demonstra organização e capricho na execução das tarefas escolares?" },
-      { id: "acad_6", label: "Participa ativamente das atividades propostas em sala?" },
-    ],
-  },
-  {
-    id: "frequencia",
-    label: "Frequência e Pontualidade",
-    emoji: "⏰",
-    color: "purple",
-    items: [
-      { id: "freq_1", label: "Mantém frequência regular e assídua nas aulas?" },
-      { id: "freq_2", label: "Chega pontualmente para o início das atividades escolares?" },
-      { id: "freq_3", label: "Justifica ausências de forma adequada quando necessário?" },
-      { id: "freq_4", label: "Demonstra responsabilidade na reposição de conteúdos perdidos?" },
-      { id: "freq_5", label: "Evita atrasos recorrentes ou saídas antecipadas?" },
-      { id: "freq_6", label: "Mantém constância na presença ao longo de todo o trimestre?" },
-    ],
-  },
-  {
-    id: "comportamento",
-    label: "Comportamento e Disciplina",
-    emoji: "⚖️",
-    color: "orange",
-    items: [
-      { id: "comp_1", label: "Respeita as normas e combinados estabelecidos pela escola?" },
-      { id: "comp_2", label: "Mantém comportamento adequado durante as aulas?" },
-      { id: "comp_3", label: "Demonstra respeito pelos professores e colegas?" },
-      { id: "comp_4", label: "Aceita orientações e correções de forma positiva?" },
-      { id: "comp_5", label: "Consegue controlar impulsos e manter postura equilibrada?" },
-      { id: "comp_6", label: "Evita atitudes que prejudicam o ambiente de aprendizagem?" },
-    ],
-  },
-  {
-    id: "social",
-    label: "Desenvolvimento Social",
-    emoji: "🤝",
-    color: "green",
-    items: [
-      { id: "soc_1", label: "Relaciona-se de forma respeitosa com os colegas?" },
-      { id: "soc_2", label: "Participa de atividades em grupo de maneira colaborativa?" },
-      { id: "soc_3", label: "Demonstra empatia e respeito às diferenças?" },
-      { id: "soc_4", label: "Consegue resolver conflitos de forma adequada ou com mediação?" },
-      { id: "soc_5", label: "Contribui para um ambiente positivo na sala de aula?" },
-      { id: "soc_6", label: "Demonstra habilidades de comunicação com colegas e professores?" },
+      { id: "acad_1", label: "Comparando ao semestre anterior, demonstra maior compreensão dos conteúdos trabalhados?" },
+      { id: "acad_2", label: "Apresenta evolução na realização das atividades com autonomia?" },
+      { id: "acad_3", label: "Demonstra avanço na interpretação de enunciados e resolução de tarefas?" },
+      { id: "acad_4", label: "Comparando ao relatório anterior, mostra maior interesse pelas aulas?" },
+      { id: "acad_5", label: "Evoluiu na organização e capricho das atividades escolares?" },
+      { id: "acad_6", label: "Demonstra mais segurança ao aplicar conhecimentos em novas situações?" },
     ],
   },
   {
     id: "autonomia",
-    label: "Autonomia e Engajamento",
-    emoji: "🌱",
+    label: "Evolução no Processo de Aprendizagem",
+    emoji: "📈",
     color: "teal",
     items: [
-      { id: "auto_1", label: "Demonstra interesse pelas atividades propostas?" },
-      { id: "auto_2", label: "Participa espontaneamente das aulas e discussões?" },
-      { id: "auto_3", label: "Assume responsabilidade pelo próprio aprendizado?" },
-      { id: "auto_4", label: "Busca ajuda quando encontra dificuldades?" },
-      { id: "auto_5", label: "Demonstra iniciativa na realização de tarefas?" },
-      { id: "auto_6", label: "Mantém foco e persistência diante de desafios?" },
+      { id: "auto_1", label: "Comparando ao semestre anterior, apresentou progresso significativo na aprendizagem?" },
+      { id: "auto_2", label: "Demonstra maior participação nas atividades pedagógicas?" },
+      { id: "auto_3", label: "Evoluiu na capacidade de manter atenção e concentração durante as aulas?" },
+      { id: "auto_4", label: "Apresenta maior facilidade em acompanhar a rotina escolar?" },
+      { id: "auto_5", label: "Demonstra evolução na realização das tarefas dentro do prazo?" },
+      { id: "auto_6", label: "Comparando ao relatório anterior, apresenta maior comprometimento acadêmico?" },
+    ],
+  },
+  {
+    id: "frequencia",
+    label: "Frequência, Compromisso e Responsabilidade",
+    emoji: "⏰",
+    color: "purple",
+    items: [
+      { id: "freq_1", label: "Comparando ao semestre anterior, melhorou sua frequência escolar?" },
+      { id: "freq_2", label: "Demonstra maior pontualidade no início das atividades?" },
+      { id: "freq_3", label: "Evoluiu na responsabilidade com materiais e tarefas escolares?" },
+      { id: "freq_4", label: "Mantém maior regularidade na entrega das atividades propostas?" },
+      { id: "freq_5", label: "Demonstra mais compromisso em recuperar conteúdos pendentes?" },
+      { id: "freq_6", label: "Comparando ao relatório anterior, apresenta mais constância na rotina escolar?" },
+    ],
+  },
+  {
+    id: "comportamento",
+    label: "Comportamento e Desenvolvimento Emocional",
+    emoji: "⚖️",
+    color: "orange",
+    items: [
+      { id: "comp_1", label: "Comparando ao semestre anterior, demonstra melhora no comportamento em sala?" },
+      { id: "comp_2", label: "Evoluiu no respeito às regras e combinados da escola?" },
+      { id: "comp_3", label: "Demonstra maior equilíbrio emocional diante de desafios e frustrações?" },
+      { id: "comp_4", label: "Apresenta evolução na aceitação de orientações e correções?" },
+      { id: "comp_5", label: "Comparando ao relatório anterior, demonstra mais autocontrole nas interações?" },
+      { id: "comp_6", label: "Evoluiu na postura e convivência durante as aulas?" },
+    ],
+  },
+  {
+    id: "social",
+    label: "Desenvolvimento Social e Relacionamento",
+    emoji: "🤝",
+    color: "green",
+    items: [
+      { id: "soc_1", label: "Comparando ao semestre anterior, melhorou a convivência com colegas?" },
+      { id: "soc_2", label: "Demonstra maior colaboração em atividades em grupo?" },
+      { id: "soc_3", label: "Evoluiu na capacidade de resolver conflitos de forma respeitosa?" },
+      { id: "soc_4", label: "Demonstra mais empatia e respeito às diferenças?" },
+      { id: "soc_5", label: "Comparando ao relatório anterior, participa de forma mais positiva da turma?" },
+      { id: "soc_6", label: "Apresenta evolução na comunicação com colegas e professores?" },
     ],
   },
 ];
@@ -98,7 +98,7 @@ export const COLOR_STYLES = {
 };
 
 export const QUARTER_LABELS = {
-  1: "1º Trimestre", 2: "2º Trimestre", 3: "3º Trimestre", 4: "4º Trimestre",
+  1: "1º Semestre", 2: "2º Semestre",
 };
 
 // ── Cálculo de status por categoria ──────────────────────────────────────────

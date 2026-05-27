@@ -45,7 +45,7 @@ export default function GerarLinkRelatorioPage() {
   async function handleGenerate() {
     setError("");
     if (!form.student_id) return setError("Selecione um aluno.");
-    if (!form.quarter) return setError("Selecione o trimestre.");
+    if (!form.quarter) return setError("Selecione o semestre.");
     setGenerating(true);
 
     const res = await fetch("/api/relatorio/gerar-token", {
@@ -109,11 +109,11 @@ export default function GerarLinkRelatorioPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Trimestre *</label>
+            <label className="text-sm font-medium">Semestre *</label>
             <Select value={form.quarter} onValueChange={v => setForm(p => ({ ...p, quarter: v }))}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
-                {[1,2,3,4].map(q => <SelectItem key={q} value={String(q)}>{QUARTER_LABELS[q]}</SelectItem>)}
+                {[1,2].map(q => <SelectItem key={q} value={String(q)}>{QUARTER_LABELS[q]}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

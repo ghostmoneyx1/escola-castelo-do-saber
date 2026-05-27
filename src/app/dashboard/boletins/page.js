@@ -38,6 +38,8 @@ import {
   Download,
 } from "lucide-react";
 import { UNIT_LABELS } from "@/lib/constants";
+import { isInfantil } from "@/lib/boletim-infantil";
+import { BoletimInfantil } from "@/components/boletins/boletim-infantil";
 
 // Bimestre ativo atual para a Fase 1 (Bimestres menores que este ficam trancados)
 const ATUAL_BIMESTRE = 2;
@@ -147,6 +149,7 @@ export default function BoletinsPage() {
     : students;
 
   const selectedStudentData = students.find((s) => s.id === selectedStudent);
+  const studentIsInfantil = isInfantil(selectedStudentData?.classes?.grade);
 
   return (
     <div className="space-y-6">
@@ -209,16 +212,18 @@ export default function BoletinsPage() {
             </SelectContent>
           </Select>
         </div>
-        <Select value={selectedUnit} onValueChange={setSelectedUnit}>
-          <SelectTrigger className="bg-white border-none py-3 px-4 h-auto min-w-[160px] text-sm font-medium shadow-none w-full sm:w-[200px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {[1, 2, 3, 4].map((u) => (
-              <SelectItem key={u} value={String(u)}>{UNIT_LABELS[u]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!studentIsInfantil && (
+          <Select value={selectedUnit} onValueChange={setSelectedUnit}>
+            <SelectTrigger className="bg-white border-none py-3 px-4 h-auto min-w-[160px] text-sm font-medium shadow-none w-full sm:w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[1, 2, 3, 4].map((u) => (
+                <SelectItem key={u} value={String(u)}>{UNIT_LABELS[u]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {!selectedStudent ? (
@@ -230,6 +235,8 @@ export default function BoletinsPage() {
         <div className="flex items-center justify-center py-20 no-print">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
+      ) : studentIsInfantil ? (
+        <BoletimInfantil student={selectedStudentData} />
       ) : (
         <div id="printable-boletim" className="bg-white">
           {/* Print Header */}

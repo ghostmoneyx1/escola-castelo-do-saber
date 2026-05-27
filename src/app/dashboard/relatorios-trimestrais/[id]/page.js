@@ -11,11 +11,11 @@ import { ArrowLeft, Loader2, Printer, ChevronDown, ChevronUp } from "lucide-reac
 import Link from "next/link";
 
 const CAT_LABELS = {
-  academico: "Desempenho Acadêmico",
-  frequencia: "Frequência e Pontualidade",
-  comportamento: "Comportamento e Disciplina",
-  social: "Desenvolvimento Social",
-  autonomia: "Autonomia e Engajamento",
+  academico: "Aprendizagem e Evolução Acadêmica",
+  autonomia: "Evolução no Processo de Aprendizagem",
+  frequencia: "Frequência, Compromisso e Responsabilidade",
+  comportamento: "Comportamento e Desenvolvimento Emocional",
+  social: "Desenvolvimento Social e Relacionamento",
 };
 
 const STATUS_LABEL = {
@@ -63,7 +63,7 @@ export default function ViewRelatorioPage() {
 
   const s = report.students;
   const hasSynthesis = report.sintese || report.pontos_fortes || report.aspectos_desenvolver || report.encaminhamentos;
-  const categories = ["academico", "frequencia", "comportamento", "social", "autonomia"];
+  const categories = ["academico", "autonomia", "frequencia", "comportamento", "social"];
   const overall = STATUS_LABEL[report.status_geral];
   const filledDate = formatDate(report.filled_at || report.created_at);
 
@@ -105,7 +105,7 @@ export default function ViewRelatorioPage() {
               <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", opacity: 0.75, marginBottom: 4 }}>
                 Escola Castelo do Saber
               </p>
-              <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Relatório Trimestral</h1>
+              <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Relatório Semestral</h1>
               <p style={{ fontSize: 13, marginTop: 6, opacity: 0.85 }}>
                 {QUARTER_LABELS[report.quarter]} &bull; Ano letivo {report.year}
               </p>
@@ -197,14 +197,8 @@ export default function ViewRelatorioPage() {
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "#64748b" }}>
-                  Análise Pedagógica
+                  Relatório Simplificado
                 </p>
-                <span style={{
-                  fontSize: 9, fontWeight: 700, background: "#ede9fe", color: "#7c3aed",
-                  borderRadius: 20, padding: "2px 8px", letterSpacing: 1,
-                }}>
-                  ✦ GERADO POR IA
-                </span>
               </div>
 
               {[

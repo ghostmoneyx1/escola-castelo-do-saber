@@ -72,7 +72,7 @@ export default function AlunoDetailPage() {
 
   async function handleGenerateLink() {
     setLinkError("");
-    if (!linkQuarter) return setLinkError("Selecione o trimestre.");
+    if (!linkQuarter) return setLinkError("Selecione o semestre.");
     setGeneratingLink(true);
     const res = await fetch("/api/relatorio/gerar-token", {
       method: "POST",
@@ -226,15 +226,15 @@ export default function AlunoDetailPage() {
         <div className="bg-white border border-border rounded-xl p-6 lg:col-span-2">
           <h3 className="text-base font-semibold font-heading flex items-center gap-2 text-foreground mb-5">
             <ClipboardList className="h-4 w-4 text-blue-600" />
-            Relatório Trimestral
+            Relatório Semestral
           </h3>
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Trimestre</label>
+              <label className="text-xs font-medium text-muted-foreground">Semestre</label>
               <Select value={linkQuarter} onValueChange={v => { setLinkQuarter(v); setGeneratedLink(""); setLinkError(""); }}>
                 <SelectTrigger className="h-9 w-[170px]"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {[1,2,3,4].map(q => <SelectItem key={q} value={String(q)}>{QUARTER_LABELS[q]}</SelectItem>)}
+                  {[1,2].map(q => <SelectItem key={q} value={String(q)}>{QUARTER_LABELS[q]}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

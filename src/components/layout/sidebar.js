@@ -43,7 +43,7 @@ const navigation = [
   { name: "Financeiro", href: "/dashboard/financeiro",  icon: Wallet },
   { name: "Contratos",  href: "/dashboard/contratos",   icon: ReceiptIcon },
   { name: "Relatórios",    href: "/dashboard/relatorios",             icon: BarChart3 },
-  { name: "Trimestral",   href: "/dashboard/relatorios-trimestrais", icon: ClipboardCheck },
+  { name: "Semestral",   href: "/dashboard/relatorios-trimestrais", icon: ClipboardCheck },
   { name: "Colaboradores", href: "/dashboard/colaboradores",         icon: UserCheck },
 ];
 

@@ -97,10 +97,10 @@ describe("gerarTokenSchema", () => {
     expect(result.data.year).toBe(2026);
   });
 
-  it("rejeita quarter fora de 1..4", () => {
+  it("rejeita quarter fora de 1..2", () => {
     const result = gerarTokenSchema.safeParse({
       student_id: validUuid,
-      quarter: 5,
+      quarter: 3,
       year: 2026,
     });
     expect(result.success).toBe(false);

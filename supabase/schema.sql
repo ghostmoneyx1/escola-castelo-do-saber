@@ -182,6 +182,18 @@ CREATE TABLE report_tokens (
   UNIQUE(student_id, quarter, year)
 );
 
+-- Avaliação Infantil (boletim semáforo semestral — Grupos 01–05)
+CREATE TABLE infantil_evaluations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  semester INTEGER NOT NULL CHECK (semester BETWEEN 1 AND 2),
+  year INTEGER NOT NULL DEFAULT EXTRACT(YEAR FROM now()),
+  responses JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(student_id, semester, year)
+);
+
 -- Rate limit counters (uma linha por chave "bucket:identifier").
 -- Toda escrita passa pela função SQL rate_limit_hit() chamada via service role.
 -- RLS habilitada e SEM policies — anon/authenticated não leem nem escrevem.
@@ -214,6 +226,8 @@ CREATE INDEX idx_quarterly_reports_year_quarter ON quarterly_reports(year, quart
 CREATE INDEX idx_report_tokens_token ON report_tokens(token);
 CREATE INDEX idx_report_tokens_student ON report_tokens(student_id);
 CREATE INDEX idx_report_tokens_expires_at ON report_tokens(expires_at);
+CREATE INDEX idx_infantil_eval_student ON infantil_evaluations(student_id);
+CREATE INDEX idx_infantil_eval_year_semester ON infantil_evaluations(year, semester);
 CREATE INDEX IF NOT EXISTS idx_rate_limits_window_start ON rate_limits(window_start);
 
 -- ============================================
@@ -232,6 +246,7 @@ ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE enrollments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quarterly_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE infantil_evaluations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
 
 -- Policy: authenticated users have full access (admin-only system)
@@ -248,6 +263,7 @@ CREATE POLICY "Full access for authenticated users" ON documents FOR ALL USING (
 CREATE POLICY "Full access for authenticated users" ON enrollments FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Full access for authenticated users" ON quarterly_reports FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Full access for authenticated users" ON report_tokens FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Full access for authenticated users" ON infantil_evaluations FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 -- ============================================
 -- SEED DATA
@@ -286,4 +302,8 @@ CREATE TRIGGER students_updated_at
 
 CREATE TRIGGER grades_updated_at
   BEFORE UPDATE ON grades
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER infantil_evaluations_updated_at
+  BEFORE UPDATE ON infantil_evaluations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();

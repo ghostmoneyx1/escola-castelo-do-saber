@@ -5,11 +5,13 @@ import { AtestadoFrequencia } from "./atestado-frequencia";
 import { AtestadoTransferencia } from "./atestado-transferencia";
 import { AtestadoPagamento, AtestadoQuitacao } from "./atestado-pagamento";
 import { HistoricoEscolar } from "./historico-escolar";
+import { BoletimInfantil } from "./boletim-infantil";
 
-async function fetchStudentData(studentId) {
+async function fetchStudentData(studentId, options = {}) {
   const supabase = createClient();
+  const year = new Date().getFullYear();
 
-  const [studentRes, guardiansRes, gradesRes, paymentsRes] = await Promise.all([
+  const [studentRes, guardiansRes, gradesRes, paymentsRes, evalRes] = await Promise.all([
     supabase
       .from("students")
       .select("*, classes(name, grade, shift), units(name)")
@@ -30,6 +32,15 @@ async function fetchStudentData(studentId) {
       .eq("student_id", studentId)
       .eq("reference_year", new Date().getFullYear())
       .order("reference_month"),
+    options.semester
+      ? supabase
+          .from("infantil_evaluations")
+          .select("id, semester, year, responses")
+          .eq("student_id", studentId)
+          .eq("semester", options.semester)
+          .eq("year", year)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const student = studentRes.data;
@@ -54,12 +65,13 @@ async function fetchStudentData(studentId) {
   const grades = gradesRes.data || [];
   const payments = paymentsRes.data || [];
   const unit = student.units?.name || "Matriz";
+  const evaluation = evalRes?.data || null;
 
-  return { student, guardians, grades, payments, unit };
+  return { student, guardians, grades, payments, unit, evaluation };
 }
 
 function getDocumentComponent(type, data) {
-  const { student, guardians, grades, payments, unit, logoSrc } = data;
+  const { student, guardians, grades, payments, unit, logoSrc, evaluation, semester } = data;
 
   switch (type) {
     case "Atestado de Matrícula":
@@ -76,6 +88,9 @@ function getDocumentComponent(type, data) {
 
     case "Atestado de Quitação de Débito":
       return AtestadoQuitacao({ student, guardians, unit, logoSrc });
+
+    case "Boletim Infantil":
+      return BoletimInfantil({ student, unit, logoSrc, evaluation, semester });
 
     default:
       throw new Error(`Tipo de documento não suportado: ${type}`);
@@ -96,9 +111,9 @@ async function fetchLogoBase64() {
   }
 }
 
-export async function generateDocument(studentId, type) {
-  const [data, logoSrc] = await Promise.all([fetchStudentData(studentId), fetchLogoBase64()]);
-  const component = getDocumentComponent(type, { ...data, logoSrc });
+export async function generateDocument(studentId, type, options = {}) {
+  const [data, logoSrc] = await Promise.all([fetchStudentData(studentId, options), fetchLogoBase64()]);
+  const component = getDocumentComponent(type, { ...data, logoSrc, semester: options.semester });
   const blob = await pdf(component).toBlob();
 
   // Ensure Blob is explicitly typed

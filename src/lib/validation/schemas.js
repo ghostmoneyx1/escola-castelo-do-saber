@@ -19,7 +19,7 @@ export const relatorioSubmitSchema = z.object({
 
 export const gerarTokenSchema = z.object({
   student_id: uuid,
-  quarter: z.coerce.number().int().min(1).max(4),
+  quarter: z.coerce.number().int().min(1).max(2),
   year: z.coerce.number().int().min(2020).max(2100),
 });
 
