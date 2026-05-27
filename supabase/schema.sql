@@ -33,7 +33,7 @@ CREATE TABLE students (
   gender TEXT CHECK (gender IN ('Masculino', 'Feminino', 'Outro')),
   birthplace TEXT,
   previous_school TEXT,
-  enrollment_type TEXT CHECK (enrollment_type IN ('Particular', 'Bolsista')),
+  enrollment_type TEXT CHECK (enrollment_type IS NULL OR enrollment_type IN ('Particular', 'Integral', 'Fundamental', 'Projeto')),
   uses_transport BOOLEAN DEFAULT false,
   status TEXT NOT NULL DEFAULT 'Ativo' CHECK (status IN ('Ativo', 'Pendente', 'Inativo', 'Transferido')),
   class_id UUID REFERENCES classes(id) ON DELETE SET NULL,

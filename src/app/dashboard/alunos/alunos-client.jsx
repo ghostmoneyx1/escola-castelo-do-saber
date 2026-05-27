@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { ENROLLMENT_TYPES, ENROLLMENT_TYPE_STYLES } from "@/lib/constants";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -177,8 +178,9 @@ export default function AlunosClient({ initialStudents }) {
           <SelectTrigger className="h-10 w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="Todos">Todos os tipos</SelectItem>
-            <SelectItem value="Particular">Particular</SelectItem>
-            <SelectItem value="Projeto">Projeto</SelectItem>
+            {ENROLLMENT_TYPES.map((t) => (
+              <SelectItem key={t} value={t}>{t}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -240,13 +242,15 @@ export default function AlunosClient({ initialStudents }) {
                       {student.units?.name || "—"}
                     </TableCell>
                     <TableCell className="px-5 py-3.5">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
-                        student.enrollment_type === "Projeto"
-                          ? "bg-amber-50 text-amber-700"
-                          : "bg-blue-50 text-blue-700"
-                      }`}>
-                        {student.enrollment_type === "Projeto" ? "Projeto" : "Particular"}
-                      </span>
+                      {student.enrollment_type ? (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
+                          ENROLLMENT_TYPE_STYLES[student.enrollment_type] || "bg-slate-50 text-slate-700"
+                        }`}>
+                          {student.enrollment_type}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="px-5 py-3.5">
                       <StatusBadge status={student.status} />

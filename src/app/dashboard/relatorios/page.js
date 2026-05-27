@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { ENROLLMENT_TYPES, ENROLLMENT_TYPE_COLORS } from "@/lib/constants";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   Select,
@@ -182,24 +183,33 @@ export default function RelatoriosPage() {
       studentsByClass[s.class_id].push(s);
     });
 
-    const classesData = classes.map((c) => ({
-      ...c,
-      students: studentsByClass[c.id] || [],
-      totalStudents: (studentsByClass[c.id] || []).length,
-      particular: (studentsByClass[c.id] || []).filter((s) => s.enrollment_type === "Particular").length,
-      projeto: (studentsByClass[c.id] || []).filter((s) => s.enrollment_type === "Projeto").length,
-      transport: (studentsByClass[c.id] || []).filter((s) => s.uses_transport).length,
-    }));
+    const classesData = classes.map((c) => {
+      const inClass = studentsByClass[c.id] || [];
+      const byType = Object.fromEntries(
+        ENROLLMENT_TYPES.map((t) => [t, inClass.filter((s) => s.enrollment_type === t).length])
+      );
+      return {
+        ...c,
+        students: inClass,
+        totalStudents: inClass.length,
+        byType,
+        // Mantém props legadas pra não quebrar tabela atual
+        particular: byType.Particular || 0,
+        projeto: byType.Projeto || 0,
+        transport: inClass.filter((s) => s.uses_transport).length,
+      };
+    });
 
     // Métricas
-    const particularCount = students.filter((s) => s.enrollment_type === "Particular").length;
-    const bolsistaCount = students.filter((s) => s.enrollment_type === "Bolsista").length;
-    const otherCount = students.length - particularCount - bolsistaCount;
-    const typeDistribution = [
-      { name: "Particular", value: particularCount, color: "#2563eb" },
-      { name: "Bolsista", value: bolsistaCount, color: "#f59e0b" },
-    ];
-    if (otherCount > 0) typeDistribution.push({ name: "Outros", value: otherCount, color: "#94a3b8" });
+    const studentsByType = Object.fromEntries(
+      ENROLLMENT_TYPES.map((t) => [t, students.filter((s) => s.enrollment_type === t).length])
+    );
+    const knownCount = Object.values(studentsByType).reduce((a, n) => a + n, 0);
+    const otherCount = students.length - knownCount;
+    const typeDistribution = ENROLLMENT_TYPES
+      .map((t) => ({ name: t, value: studentsByType[t], color: ENROLLMENT_TYPE_COLORS[t] }))
+      .filter((d) => d.value > 0);
+    if (otherCount > 0) typeDistribution.push({ name: "Sem tipo", value: otherCount, color: "#94a3b8" });
 
     const inactiveCount = students.filter((s) => s.status === "Inativo" || s.status === "Transferido").length;
     const evasionRate = students.length > 0 ? Math.round((inactiveCount / students.length) * 100) : 0;
@@ -213,8 +223,9 @@ export default function RelatoriosPage() {
       evasionRate,
       totalClasses: classes.length,
       activeEnrollments: enrollments.filter((e) => e.status === "Ativa").length,
-      particularStudents: particularCount,
-      bolsistaStudents: bolsistaCount,
+      studentsByType,
+      particularStudents: studentsByType.Particular || 0,
+      projetoStudents: studentsByType.Projeto || 0,
       transportStudents: students.filter((s) => s.uses_transport).length,
       totalRevenue: payments.filter((p) => p.status === "Pago").reduce((a, p) => a + Number(p.amount), 0),
       pendingRevenue: payments.filter((p) => p.status === "Pendente").reduce((a, p) => a + Number(p.amount), 0),
