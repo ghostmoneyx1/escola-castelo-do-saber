@@ -150,6 +150,14 @@ export function BoletimInfantil({ student }) {
                 <span className="text-base">{area.emoji}</span>
                 <h3 className="text-sm font-semibold text-foreground">{area.label}</h3>
               </div>
+              {area.avaliar && area.avaliar.length > 0 && (
+                <div className="px-5 py-3 border-b border-border bg-white">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Avaliar:</p>
+                  <ul className="list-disc list-inside text-xs text-foreground/80 space-y-0.5">
+                    {area.avaliar.map((t, i) => <li key={i}>{t}</li>)}
+                  </ul>
+                </div>
+              )}
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-muted/20 border-b border-border">

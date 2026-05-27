@@ -49,6 +49,27 @@ const styles = {
     fontFamily: "Helvetica-Bold",
     color: colors.primary,
   },
+  avaliarBlock: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderBottomWidth: 0.4,
+    borderBottomColor: colors.border,
+    borderBottomStyle: "solid",
+    backgroundColor: "#fafafa",
+  },
+  avaliarLabel: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    color: colors.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  avaliarItem: {
+    fontSize: 8,
+    color: colors.text,
+    marginLeft: 8,
+  },
   row: {
     flexDirection: "row",
     borderBottomWidth: 0.4,
@@ -163,6 +184,14 @@ export function BoletimInfantil({ student, unit, logoSrc, evaluation, semester }
             <View style={styles.areaHeader}>
               <Text style={styles.areaTitle}>{area.label}</Text>
             </View>
+            {area.avaliar && area.avaliar.length > 0 && (
+              <View style={styles.avaliarBlock}>
+                <Text style={styles.avaliarLabel}>Avaliar:</Text>
+                {area.avaliar.map((t, i) => (
+                  <Text key={i} style={styles.avaliarItem}>• {t}</Text>
+                ))}
+              </View>
+            )}
             <View style={styles.rowHeader}>
               <View style={styles.cellCriterio}>
                 <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: colors.muted }}>Critério</Text>

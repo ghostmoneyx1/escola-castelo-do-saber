@@ -14,6 +14,13 @@ export const AREAS = [
     id: "portugues",
     label: "Português",
     emoji: "📖",
+    avaliar: [
+      "Participação nas atividades orais",
+      "Interesse por histórias e leitura",
+      "Reconhecimento de letras e sons",
+      "Comunicação verbal",
+      "Desenvolvimento da escrita inicial",
+    ],
     items: [
       { id: "port_1", label: "Participa das atividades de linguagem oral" },
       { id: "port_2", label: "Demonstra interesse por histórias e livros" },
@@ -24,6 +31,13 @@ export const AREAS = [
     id: "matematica",
     label: "Matemática",
     emoji: "🔢",
+    avaliar: [
+      "Noções de quantidade",
+      "Sequência numérica",
+      "Comparação",
+      "Organização lógica",
+      "Participação em jogos matemáticos",
+    ],
     items: [
       { id: "mat_1", label: "Reconhece números trabalhados em sala" },
       { id: "mat_2", label: "Participa de atividades matemáticas" },
@@ -34,6 +48,13 @@ export const AREAS = [
     id: "educacao_fisica",
     label: "Educação Física",
     emoji: "⚽",
+    avaliar: [
+      "Coordenação motora",
+      "Participação",
+      "Equilíbrio",
+      "Interação nas brincadeiras",
+      "Respeito às regras",
+    ],
     items: [
       { id: "edfis_1", label: "Participa das atividades corporais" },
       { id: "edfis_2", label: "Demonstra coordenação motora adequada" },
@@ -44,6 +65,12 @@ export const AREAS = [
     id: "natureza_sociedade",
     label: "Natureza e Sociedade",
     emoji: "🌱",
+    avaliar: [
+      "Curiosidade",
+      "Interação com o meio",
+      "Hábitos de cuidado",
+      "Participação em projetos",
+    ],
     items: [
       { id: "nat_1", label: "Demonstra curiosidade sobre o ambiente" },
       { id: "nat_2", label: "Participa das atividades coletivas" },
@@ -54,6 +81,13 @@ export const AREAS = [
     id: "capoeira",
     label: "Capoeira",
     emoji: "🥁",
+    avaliar: [
+      "Ritmo",
+      "Coordenação",
+      "Participação",
+      "Respeito ao grupo",
+      "Expressão corporal",
+    ],
     items: [
       { id: "capo_1", label: "Participa das rodas e atividades" },
       { id: "capo_2", label: "Demonstra coordenação nos movimentos" },
@@ -64,6 +98,13 @@ export const AREAS = [
     id: "socioemocional",
     label: "Desenvolvimento Socioemocional",
     emoji: "🌟",
+    avaliar: [
+      "Autonomia",
+      "Compartilhamento",
+      "Respeito aos combinados",
+      "Expressão emocional",
+      "Convivência com colegas",
+    ],
     items: [
       { id: "socio_1", label: "Demonstra autonomia nas atividades" },
       { id: "socio_2", label: "Compartilha materiais e brinquedos" },
