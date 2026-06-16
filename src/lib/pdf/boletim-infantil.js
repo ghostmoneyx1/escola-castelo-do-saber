@@ -1,74 +1,104 @@
 import { Document, Page, Text, View } from "@react-pdf/renderer";
 import { baseStyles, colors, formatDate } from "./styles";
 import { DocumentHeader } from "./header";
-import { DocumentFooter, Signature } from "./footer";
+import { DocumentFooter } from "./footer";
 import { AREAS, NIVEIS, NIVEL_MAP, SEMESTER_LABELS } from "@/lib/boletim-infantil";
 
+const NIVEL_ABBR = { verde: "E", amarelo: "D", vermelho: "A" };
+
 const styles = {
-  intro: {
+  page: {
+    padding: 26,
+    fontSize: 11,
+    fontFamily: "Helvetica",
+    color: colors.text,
+  },
+  title: {
+    fontSize: 12,
+    fontFamily: "Helvetica-Bold",
+    textAlign: "center",
+    color: colors.primary,
+    marginTop: 8,
+    marginBottom: 5,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  studentLine: {
     fontSize: 9,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  intro: {
+    fontSize: 7,
     color: colors.muted,
     textAlign: "center",
-    marginBottom: 14,
+    marginBottom: 5,
   },
   legendRow: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 14,
-    marginBottom: 14,
+    gap: 12,
+    marginBottom: 8,
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 4,
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
   legendText: {
-    fontSize: 8,
+    fontSize: 7,
     color: colors.text,
   },
+  areasGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
   areaBlock: {
-    marginBottom: 12,
+    width: "49%",
+    marginBottom: 7,
     borderWidth: 0.6,
     borderColor: colors.border,
     borderStyle: "solid",
   },
   areaHeader: {
     backgroundColor: "#eef2f7",
-    paddingVertical: 5,
-    paddingHorizontal: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
     borderBottomWidth: 0.6,
     borderBottomColor: colors.border,
   },
   areaTitle: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: "Helvetica-Bold",
     color: colors.primary,
   },
   avaliarBlock: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
     borderBottomWidth: 0.4,
     borderBottomColor: colors.border,
     borderBottomStyle: "solid",
     backgroundColor: "#fafafa",
   },
   avaliarLabel: {
-    fontSize: 7,
+    fontSize: 6,
     fontFamily: "Helvetica-Bold",
     color: colors.muted,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   avaliarItem: {
-    fontSize: 8,
+    fontSize: 6.5,
     color: colors.text,
-    marginLeft: 8,
+    marginLeft: 4,
+    lineHeight: 1.2,
   },
   row: {
     flexDirection: "row",
@@ -84,13 +114,13 @@ const styles = {
   },
   cellCriterio: {
     flex: 1,
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    fontSize: 9,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    fontSize: 7.5,
   },
   cellMark: {
-    width: 52,
-    paddingVertical: 5,
+    width: 34,
+    paddingVertical: 3,
     alignItems: "center",
     justifyContent: "center",
     borderLeftWidth: 0.4,
@@ -98,35 +128,44 @@ const styles = {
     borderLeftStyle: "solid",
   },
   cellMarkHeader: {
-    width: 52,
-    paddingVertical: 5,
+    width: 34,
+    paddingVertical: 3,
     alignItems: "center",
     justifyContent: "center",
     borderLeftWidth: 0.4,
     borderLeftColor: colors.border,
     borderLeftStyle: "solid",
     flexDirection: "row",
-    gap: 3,
+    gap: 2,
   },
   cellMarkHeaderText: {
-    fontSize: 7,
+    fontSize: 6,
     fontFamily: "Helvetica-Bold",
     color: colors.text,
   },
   filledDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1.5,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    borderWidth: 1.2,
   },
   emptyCircle: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
     borderWidth: 0.8,
     borderColor: "#94a3b8",
     borderStyle: "solid",
     backgroundColor: "transparent",
+  },
+  dateText: {
+    fontSize: 9,
+    textAlign: "right",
+    marginTop: 10,
+  },
+  signatureContainer: {
+    marginTop: 16,
+    alignItems: "center",
   },
 };
 
@@ -152,14 +191,14 @@ export function BoletimInfantil({ student, unit, logoSrc, evaluation, semester }
 
   return (
     <Document>
-      <Page size="A4" style={baseStyles.page}>
+      <Page size="A4" style={styles.page}>
         <DocumentHeader unit={unit} logoSrc={logoSrc} />
 
-        <Text style={baseStyles.title}>
+        <Text style={styles.title}>
           Boletim Infantil — {semesterLabel} / {year}
         </Text>
 
-        <Text style={baseStyles.bodyIndented}>
+        <Text style={styles.studentLine}>
           {student.gender === "Feminino" ? "Aluna: " : "Aluno: "}
           <Text style={baseStyles.bold}>{student.name}</Text>
           {student.className ? ` — ${student.className}` : ""}
@@ -174,54 +213,61 @@ export function BoletimInfantil({ student, unit, logoSrc, evaluation, semester }
           {NIVEIS.map(n => (
             <View key={n.value} style={styles.legendItem}>
               <View style={{ ...styles.legendDot, backgroundColor: n.hex }} />
-              <Text style={styles.legendText}>{n.label}</Text>
+              <Text style={styles.legendText}>{NIVEL_ABBR[n.value]} — {n.label}</Text>
             </View>
           ))}
         </View>
 
-        {AREAS.map(area => (
-          <View key={area.id} style={styles.areaBlock} wrap={false}>
-            <View style={styles.areaHeader}>
-              <Text style={styles.areaTitle}>{area.label}</Text>
-            </View>
-            {area.avaliar && area.avaliar.length > 0 && (
-              <View style={styles.avaliarBlock}>
-                <Text style={styles.avaliarLabel}>Avaliar:</Text>
-                {area.avaliar.map((t, i) => (
-                  <Text key={i} style={styles.avaliarItem}>• {t}</Text>
-                ))}
+        <View style={styles.areasGrid}>
+          {AREAS.map(area => (
+            <View key={area.id} style={styles.areaBlock} wrap={false}>
+              <View style={styles.areaHeader}>
+                <Text style={styles.areaTitle}>{area.label}</Text>
               </View>
-            )}
-            <View style={styles.rowHeader}>
-              <View style={styles.cellCriterio}>
-                <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: colors.muted }}>Critério</Text>
-              </View>
-              {NIVEIS.map(n => (
-                <View key={n.value} style={styles.cellMarkHeader}>
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: n.hex }} />
-                  <Text style={styles.cellMarkHeaderText}>{n.short}</Text>
-                </View>
-              ))}
-            </View>
-            {area.items.map(item => {
-              const current = responses[item.id];
-              return (
-                <View key={item.id} style={styles.row}>
-                  <View style={styles.cellCriterio}>
-                    <Text>{item.label}</Text>
-                  </View>
-                  {NIVEIS.map(n => (
-                    <MarkCell key={n.value} active={current === n.value} nivel={n} />
+              {area.avaliar && area.avaliar.length > 0 && (
+                <View style={styles.avaliarBlock}>
+                  <Text style={styles.avaliarLabel}>Avaliar:</Text>
+                  {area.avaliar.map((t, i) => (
+                    <Text key={i} style={styles.avaliarItem}>• {t}</Text>
                   ))}
                 </View>
-              );
-            })}
-          </View>
-        ))}
+              )}
+              <View style={styles.rowHeader}>
+                <View style={styles.cellCriterio}>
+                  <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: colors.muted }}>Critério</Text>
+                </View>
+                {NIVEIS.map(n => (
+                  <View key={n.value} style={styles.cellMarkHeader}>
+                    <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: n.hex }} />
+                    <Text style={styles.cellMarkHeaderText}>{NIVEL_ABBR[n.value]}</Text>
+                  </View>
+                ))}
+              </View>
+              {area.items.map(item => {
+                const current = responses[item.id];
+                return (
+                  <View key={item.id} style={styles.row}>
+                    <View style={styles.cellCriterio}>
+                      <Text>{item.label}</Text>
+                    </View>
+                    {NIVEIS.map(n => (
+                      <MarkCell key={n.value} active={current === n.value} nivel={n} />
+                    ))}
+                  </View>
+                );
+              })}
+            </View>
+          ))}
+        </View>
 
-        <Text style={baseStyles.dateText}>{formatDate()}</Text>
+        <Text style={styles.dateText}>{formatDate()}</Text>
 
-        <Signature />
+        <View style={styles.signatureContainer}>
+          <View style={baseStyles.signatureLine} />
+          <Text style={baseStyles.signatureName}>Urlania Laerte C. Mota</Text>
+          <Text style={baseStyles.signatureRole}>Diretora — NTE 26-85/2021</Text>
+        </View>
+
         <DocumentFooter />
       </Page>
     </Document>
