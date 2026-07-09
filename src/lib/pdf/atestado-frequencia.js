@@ -2,9 +2,10 @@ import { Document, Page, Text, View } from "@react-pdf/renderer";
 import { baseStyles, formatDate } from "./styles";
 import { DocumentHeader } from "./header";
 import { DocumentFooter, Signature } from "./footer";
+import { birthText, filiacaoText, resolveGuardians } from "./student-info";
 
 export function AtestadoFrequencia({ student, guardians, unit, logoSrc }) {
-  const responsavel = guardians[0];
+  const parentes = resolveGuardians(guardians);
 
   return (
     <Document>
@@ -19,7 +20,8 @@ export function AtestadoFrequencia({ student, guardians, unit, logoSrc }) {
           Atesto para os devidos fins, que{" "}
           {student.gender === "Feminino" ? "a aluna " : "o aluno "}
           <Text style={baseStyles.bold}>{student.name}</Text>
-          {responsavel ? `, responsável ${responsavel.name}${responsavel.cpf ? `, CPF ${responsavel.cpf}` : ""}` : ""}
+          {birthText(student)}
+          {filiacaoText(student, parentes)}
           , encontra-se regularmente matriculad{student.gender === "Feminino" ? "a" : "o"} e
           frequentando as aulas nesta Instituição de Ensino, cursando o{" "}
           <Text style={baseStyles.bold}>

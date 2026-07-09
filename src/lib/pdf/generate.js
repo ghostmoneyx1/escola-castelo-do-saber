@@ -58,7 +58,6 @@ async function fetchStudentData(studentId, options = {}) {
     ? "Educação Infantil"
     : "Ensino Fundamental I";
 
-  // Include relationship from junction table (student_guardians)
   const guardians = (guardiansRes.data || []).map((sg) => ({
     ...sg.guardians,
   }));

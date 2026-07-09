@@ -178,5 +178,6 @@ function formatDateObj(d) {
 
 export function formatDateShort(date) {
   if (!date) return "___/___/______";
-  return new Date(date).toLocaleDateString("pt-BR");
+  const [year, month, day] = String(date).slice(0, 10).split("-");
+  return `${day}/${month}/${year}`;
 }

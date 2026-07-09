@@ -2,6 +2,7 @@ import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { baseStyles, colors, formatDate } from "./styles";
 import { DocumentHeader } from "./header";
 import { DocumentFooter, Signature } from "./footer";
+import { formatBirthDate, resolveGuardians } from "./student-info";
 
 const s = StyleSheet.create({
   infoRow: {
@@ -115,9 +116,7 @@ const SUBJECTS = [
 const YEARS = ["1º Ano", "2º Ano", "3º Ano", "4º Ano", "5º Ano"];
 
 export function HistoricoEscolar({ student, guardians, grades, unit, logoSrc }) {
-  const mae = guardians.find((g) => g.relationship === "Mãe");
-  const pai = guardians.find((g) => g.relationship === "Pai");
-  const responsavel = mae || pai || guardians[0];
+  const { mae, pai, responsavel } = resolveGuardians(guardians);
 
   // Organize grades by subject name and year
   function getGrade(subjectName, yearIndex) {
@@ -160,7 +159,7 @@ export function HistoricoEscolar({ student, guardians, grades, unit, logoSrc }) 
           <View style={s.infoRow}>
             <Text style={s.infoLabel}>Data de Nascimento:</Text>
             <Text style={s.infoValue}>
-              {student.birth_date ? new Date(student.birth_date).toLocaleDateString("pt-BR") : "—"}
+              {formatBirthDate(student.birth_date) || "—"}
             </Text>
           </View>
           <View style={{ flexDirection: "row" }}>

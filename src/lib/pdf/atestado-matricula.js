@@ -2,11 +2,10 @@ import { Document, Page, Text, View } from "@react-pdf/renderer";
 import { baseStyles, formatDate } from "./styles";
 import { DocumentHeader } from "./header";
 import { DocumentFooter, Signature } from "./footer";
+import { birthText, filiacaoText, resolveGuardians } from "./student-info";
 
 export function AtestadoMatricula({ student, guardians, unit, logoSrc }) {
-  const mae = guardians.find((g) => g.relationship === "Mãe");
-  const pai = guardians.find((g) => g.relationship === "Pai");
-  const responsavel = mae || pai || guardians[0];
+  const parentes = resolveGuardians(guardians);
   const year = new Date().getFullYear();
 
   return (
@@ -22,14 +21,8 @@ export function AtestadoMatricula({ student, guardians, unit, logoSrc }) {
           Atesto para os devidos fins, que{" "}
           {student.gender === "Feminino" ? "a aluna " : "o aluno "}
           <Text style={baseStyles.bold}>{student.name}</Text>
-          {student.birth_date
-            ? `, nascid${student.gender === "Feminino" ? "a" : "o"} em ${new Date(student.birth_date).toLocaleDateString("pt-BR")}`
-            : ""}
-          {pai ? `, filh${student.gender === "Feminino" ? "a" : "o"} do senhor ${pai.name}` : ""}
-          {mae ? ` e senhora ${mae.name}` : ""}
-          {!pai && !mae && responsavel
-            ? `, cujo responsável é ${responsavel.name}${responsavel.cpf ? `, CPF ${responsavel.cpf}` : ""}`
-            : ""}
+          {birthText(student)}
+          {filiacaoText(student, parentes)}
           , encontra-se matriculad{student.gender === "Feminino" ? "a" : "o"} em nossa Instituição
           cursando o{" "}
           <Text style={baseStyles.bold}>

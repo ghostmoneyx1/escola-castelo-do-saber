@@ -2,6 +2,7 @@ import { Document, Page, Text, View } from "@react-pdf/renderer";
 import { baseStyles, formatDate } from "./styles";
 import { DocumentHeader } from "./header";
 import { DocumentFooter, Signature } from "./footer";
+import { birthText, filiacaoText, resolveGuardians } from "./student-info";
 
 const MONTHS = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -12,7 +13,7 @@ export function AtestadoPagamento({ student, guardians, unit, payments, logoSrc 
   const year = new Date().getFullYear();
   const paidPayments = (payments || []).filter((p) => p.status === "Pago");
   const totalPaid = paidPayments.reduce((acc, p) => acc + Number(p.amount), 0);
-  const responsavel = guardians[0];
+  const parentes = resolveGuardians(guardians);
 
   return (
     <Document>
@@ -27,7 +28,8 @@ export function AtestadoPagamento({ student, guardians, unit, payments, logoSrc 
           Atesto para os devidos fins, que{" "}
           {student.gender === "Feminino" ? "a aluna " : "o aluno "}
           <Text style={baseStyles.bold}>{student.name}</Text>
-          {responsavel ? `, responsável ${responsavel.name}${responsavel.cpf ? `, CPF ${responsavel.cpf}` : ""}` : ""}
+          {birthText(student)}
+          {filiacaoText(student, parentes)}
           , matriculad{student.gender === "Feminino" ? "a" : "o"} no{" "}
           <Text style={baseStyles.bold}>{student.className || "___"}</Text>
           {" "}{student.level === "Educação Infantil" ? "da Educação Infantil" : "do Ensino Fundamental I"}, encontra-se com as mensalidades
@@ -63,7 +65,7 @@ export function AtestadoPagamento({ student, guardians, unit, payments, logoSrc 
 
 export function AtestadoQuitacao({ student, guardians, unit, logoSrc }) {
   const year = new Date().getFullYear();
-  const responsavel = guardians[0];
+  const parentes = resolveGuardians(guardians);
 
   return (
     <Document>
@@ -78,7 +80,8 @@ export function AtestadoQuitacao({ student, guardians, unit, logoSrc }) {
           Atesto para os devidos fins, que{" "}
           {student.gender === "Feminino" ? "a aluna " : "o aluno "}
           <Text style={baseStyles.bold}>{student.name}</Text>
-          {responsavel ? `, responsável ${responsavel.name}${responsavel.cpf ? `, CPF ${responsavel.cpf}` : ""}` : ""}
+          {birthText(student)}
+          {filiacaoText(student, parentes)}
           , matriculad{student.gender === "Feminino" ? "a" : "o"} no{" "}
           <Text style={baseStyles.bold}>{student.className || "___"}</Text>
           {" "}{student.level === "Educação Infantil" ? "da Educação Infantil" : "do Ensino Fundamental I"}, encontra-se{" "}
