@@ -38,7 +38,7 @@ export const DOCUMENT_TYPES = [
 
 export const GENDERS = ["Masculino", "Feminino", "Outro"];
 
-export const RELATIONSHIPS = ["Pai", "Mãe", "Avô", "Avó", "Tio", "Tia", "Outro"];
+export const RELATIONSHIPS = ["Pai", "Mãe", "Responsável", "Avô", "Avó", "Tio", "Tia", "Outro"];
 
 export const UNIT_LABELS = {
   1: "I Unidade",

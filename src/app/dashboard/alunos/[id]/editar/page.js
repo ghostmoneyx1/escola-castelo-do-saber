@@ -24,16 +24,29 @@ import {
   School,
   Bus,
   Users,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import {
   GENDERS,
   STUDENT_STATUSES,
   ENROLLMENT_TYPES,
+  RELATIONSHIPS,
 } from "@/lib/constants";
 
 const formatCEP = (v) =>
   v.replace(/\D/g,"").replace(/(\d{5})(\d)/,"$1-$2").replace(/(-\d{3})\d+?$/,"$1");
+
+const emptyGuardian = {
+  name: "",
+  relationship: "",
+  cpf: "",
+  birth_date: "",
+  phone: "",
+  address: "",
+  cep: "",
+};
 
 export default function EditarAlunoPage() {
   const { id } = useParams();
@@ -65,7 +78,11 @@ export default function EditarAlunoPage() {
       }
       setClasses(classesRes.data || []);
       setUnits(unitsRes.data || []);
-      setGuardians((guardiansRes.data || []).map(sg => ({ ...sg.guardians, _sg_id: sg.id })));
+      setGuardians((guardiansRes.data || []).map(sg => ({
+        ...sg.guardians,
+        _sg_id: sg.id,
+        _is_primary: sg.is_primary,
+      })));
       setLoading(false);
     }
     load();
@@ -81,6 +98,14 @@ export default function EditarAlunoPage() {
       updated[idx] = { ...updated[idx], [field]: value };
       return updated;
     });
+  }
+
+  function addGuardian() {
+    setGuardians(prev => [...prev, { ...emptyGuardian, _isNew: true }]);
+  }
+
+  function removeGuardian(idx) {
+    setGuardians(prev => prev.filter((_, i) => i !== idx));
   }
 
   async function handleCEPChange(idx, val) {
@@ -129,15 +154,59 @@ export default function EditarAlunoPage() {
     }
 
     // Salvar responsáveis
+    let hasPrimary = guardians.some((g) => !g._isNew && g._is_primary);
+
     for (const g of guardians) {
-      if (!g.id) continue;
-      await supabase.from("guardians").update({
-        name:       g.name       || null,
-        cpf:        g.cpf        || null,
-        birth_date: g.birth_date || null,
-        phone:      g.phone      || null,
-        address:    g.address    || null,
-      }).eq("id", g.id);
+      const payload = {
+        name:         g.name         || null,
+        relationship: g.relationship || null,
+        cpf:          g.cpf          || null,
+        birth_date:   g.birth_date   || null,
+        phone:        g.phone        || null,
+        address:      g.address      || null,
+      };
+
+      if (!g._isNew) {
+        if (!g.id) continue;
+        const { error: guardianError } = await supabase
+          .from("guardians")
+          .update(payload)
+          .eq("id", g.id);
+        if (guardianError) {
+          setError("Erro ao salvar responsável: " + guardianError.message);
+          setSaving(false);
+          return;
+        }
+        continue;
+      }
+
+      if (!g.name.trim()) continue;
+
+      const { data: created, error: insertError } = await supabase
+        .from("guardians")
+        .insert({ ...payload, name: g.name.trim() })
+        .select()
+        .single();
+
+      if (insertError || !created) {
+        setError("Erro ao adicionar responsável: " + (insertError?.message || "falha desconhecida"));
+        setSaving(false);
+        return;
+      }
+
+      const { error: linkError } = await supabase.from("student_guardians").insert({
+        student_id: id,
+        guardian_id: created.id,
+        is_primary: !hasPrimary,
+      });
+
+      if (linkError) {
+        setError("Erro ao vincular responsável: " + linkError.message);
+        setSaving(false);
+        return;
+      }
+
+      hasPrimary = true;
     }
 
     router.push(`/dashboard/alunos/${id}`);
@@ -267,16 +336,46 @@ export default function EditarAlunoPage() {
         </div>
 
         {/* Responsáveis */}
-        {guardians.length > 0 && (
-          <div className="bg-white border border-border rounded-xl p-6">
-            <h3 className="text-lg font-bold font-heading flex items-center gap-2 text-foreground mb-5">
+        <div className="bg-white border border-border rounded-xl p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-lg font-bold font-heading flex items-center gap-2 text-foreground">
               <Users className="h-5 w-5 text-blue-600" />
               Responsáveis
             </h3>
+            <Button type="button" variant="outline" size="sm" onClick={addGuardian}>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar Responsável
+            </Button>
+          </div>
+
+          {guardians.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum responsável cadastrado. Use &quot;Adicionar Responsável&quot; para incluir a mãe, o pai ou outro responsável.
+            </p>
+          ) : (
             <div className="space-y-6">
               {guardians.map((g, idx) => (
-                <div key={g.id} className="border border-border rounded-xl p-4 space-y-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.relationship}</p>
+                <div key={g.id || `novo-${idx}`} className="border border-border rounded-xl p-4 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 space-y-1.5 max-w-xs">
+                      <Label className="text-sm font-medium">Vínculo</Label>
+                      <Select value={g.relationship || ""} onValueChange={v => updateGuardian(idx, "relationship", v)}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>{RELATIONSHIPS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    {g._isNew && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeGuardian(idx)}
+                        aria-label="Remover responsável"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="sm:col-span-2 space-y-1.5">
                       <Label className="text-sm font-medium">Nome do Responsável</Label>
@@ -306,8 +405,8 @@ export default function EditarAlunoPage() {
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Observações */}
         <div className="bg-white border border-border rounded-xl p-6">
