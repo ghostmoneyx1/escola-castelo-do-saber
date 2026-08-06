@@ -25,10 +25,17 @@ export const gerarTokenSchema = z.object({
 
 export const tokenParamSchema = z.string().regex(/^[a-f0-9]{48}$/, "Token inválido");
 
-export const consultaMensalidadesSchema = z.object({
-  nome: z.string().trim().min(3, "Digite pelo menos 3 letras do nome").max(120),
-  tel: z.string().regex(/^\d{4}$/, "Digite os 4 últimos dígitos do telefone"),
-});
+// Duas formas de consultar: nome + 4 dígitos (o responsável digita) ou
+// código (link direto que a escola manda pronto).
+export const consultaMensalidadesSchema = z.union([
+  z.object({
+    nome: z.string().trim().min(3, "Digite pelo menos 3 letras do nome").max(120),
+    tel: z.string().regex(/^\d{4}$/, "Digite os 4 últimos dígitos do telefone"),
+  }),
+  z.object({
+    codigo: z.string().regex(/^[a-f0-9]{12}$/, "Link inválido"),
+  }),
+]);
 
 /**
  * Valida body de request usando schema Zod.

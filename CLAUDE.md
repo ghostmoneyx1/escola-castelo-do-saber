@@ -82,8 +82,32 @@ cell is `PAGO` (settled, hidden), a `https://…` payment link (open), `DEVE`
 (overdue), `À VENCER` (upcoming, no link yet), or empty (never charged — skipped).
 
 `/api/mensalidades/consulta` is rate-limited (20 hits / 5 min per IP) because it is
-unauthenticated and returns children's names. `/dashboard/ferramentas` lists the
-public URL so the school can copy it.
+unauthenticated and returns children's names. It accepts either `{nome, tel}` (the
+guardian types) or `{codigo}` (direct link the school sends ready-made).
+
+**Direct link per student.** Each row gets a stable 12-hex `codigo` =
+`HMAC-SHA256(MENSALIDADES_LINK_SECRET, normalizedName|digitsOnlyPhone)`, so
+`/mensalidades?a=<codigo>` opens already loaded. HMAC (not a plain hash) so the code
+cannot be derived from a name someone already knows. **Rotating
+`MENSALIDADES_LINK_SECRET` invalidates every link already sent** — treat it as
+long-lived. `buscarMensalidades`/`buscarPorCodigo` return a trimmed shape that never
+includes `telefone`, `whatsapp` or `codigo`; only authenticated routes see those.
+
+**Secretariat side.** `/dashboard/cobranca` (Server Component → `obterCobranca()`)
+shows arrears totals, per-student open months, and a one-click **"Cobrar"** that opens
+`wa.me` with the message from `src/lib/mensalidades/whatsapp.js` pre-filled. Phone
+numbers in the sheet come in two shapes — 11 digits (fine) and 10 digits (old format,
+missing the mobile `9`); `normalizarWhatsapp` inserts the `9` and flags the row as
+`telefoneSuspeito` so the page can warn instead of silently messaging a wrong number.
+
+**Student file.** `/dashboard/alunos/[id]` renders
+`<SituacaoFinanceira nome={student.name} />`, which hits `/api/mensalidades/aluno`.
+Supabase and the sheet were typed separately, so `casarAlunoDaPlanilha` matches
+exact → substring → shared-surname suggestions, and the card says which case it hit
+rather than implying "nothing owed" when the match simply failed.
+
+`/api/mensalidades/qr` returns an SVG QR (authenticated) for the general link or for
+one student's `?a=` link. `/dashboard/ferramentas` lists the public URL and the mural QR.
 
 ### Components
 
@@ -114,7 +138,8 @@ Required in any environment that runs the app:
 - `NEXT_PUBLIC_SUPABASE_URL` — used by all four Supabase clients
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — used by client/server/middleware clients
 - `SUPABASE_SERVICE_ROLE_KEY` — required only by `src/lib/supabase/admin.js` (token route, rate limiting, anything that bypasses RLS)
-- `MENSALIDADES_SHEET_CSV_URL` — server-only. "Publish to web → CSV" URL of the billing Google Sheet, consumed by `/api/mensalidades/consulta`. Without it that route returns 502; the rest of the app is unaffected.
+- `MENSALIDADES_SHEET_CSV_URL` — server-only. CSV export URL of the billing Google Sheet, consumed by `/api/mensalidades/consulta`. Without it that route returns 502; the rest of the app is unaffected.
+- `MENSALIDADES_LINK_SECRET` — server-only HMAC key for the per-student direct links. Changing it invalidates every `/mensalidades?a=…` link already handed out.
 
 The middleware degrades gracefully if env vars are missing (lets the request through unauthenticated), so missing env in dev shows as "no auth gate" rather than an explicit error — verify env when auth behaves unexpectedly.
 

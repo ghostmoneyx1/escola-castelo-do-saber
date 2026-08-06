@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { QUARTER_LABELS } from "@/lib/relatorio-checklist";
+import { SituacaoFinanceira } from "@/components/mensalidades/situacao-financeira";
 
 function getInitials(name) {
   return name
@@ -220,6 +221,11 @@ export default function AlunoDetailPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Situação financeira (planilha de cobrança) */}
+        <div className="lg:col-span-2">
+          <SituacaoFinanceira nome={student.name} />
         </div>
 
         {/* Gerar Link de Avaliação */}

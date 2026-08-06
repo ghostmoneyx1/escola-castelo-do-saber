@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { buscarMensalidades, obterLinhas, normalizar } from "./sheet";
+import {
+  buscarMensalidades, buscarPorCodigo, obterLinhas, normalizar,
+  normalizarWhatsapp, obterCobranca, casarAlunoDaPlanilha,
+} from "./sheet";
 
 const CSV = [
   ",,,,,,,,,,,,,,,,",
@@ -13,6 +16,7 @@ const CSV = [
 describe("consulta de mensalidades (planilha)", () => {
   beforeEach(() => {
     process.env.MENSALIDADES_SHEET_CSV_URL = "https://exemplo.test/planilha.csv";
+    process.env.MENSALIDADES_LINK_SECRET = "segredo-de-teste";
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => CSV })));
   });
 
@@ -93,5 +97,120 @@ describe("consulta de mensalidades (planilha)", () => {
     const chamadas = fetch.mock.calls.length;
     await obterLinhas();
     expect(fetch.mock.calls.length).toBe(chamadas);
+  });
+});
+
+describe("telefone para WhatsApp", () => {
+  it("mantém celular de 11 dígitos", () => {
+    expect(normalizarWhatsapp("71993363876")).toEqual({ numero: "5571993363876", suspeito: false });
+  });
+
+  it("insere o 9 em número antigo de 10 dígitos e marca pra conferir", () => {
+    expect(normalizarWhatsapp("71 8344-5644")).toEqual({ numero: "5571983445644", suspeito: true });
+  });
+
+  it("não duplica o 55 quando já vem com DDI", () => {
+    expect(normalizarWhatsapp("5571993363876").numero).toBe("5571993363876");
+  });
+
+  it("devolve null quando o número é curto demais", () => {
+    expect(normalizarWhatsapp("9999")).toEqual({ numero: null, suspeito: true });
+  });
+});
+
+describe("link direto por aluno", () => {
+  beforeEach(() => {
+    process.env.MENSALIDADES_SHEET_CSV_URL = "https://exemplo.test/planilha.csv";
+    process.env.MENSALIDADES_LINK_SECRET = "segredo-de-teste";
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => CSV })));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("gera código estável de 12 hex e acha o aluno por ele", async () => {
+    const linhas = await obterLinhas({ forcarAtualizacao: true });
+    const alvo = linhas.find(l => l.aluno.startsWith("Samir"));
+
+    expect(alvo.codigo).toMatch(/^[a-f0-9]{12}$/);
+
+    const [achado] = await buscarPorCodigo(alvo.codigo);
+    expect(achado.aluno).toBe(alvo.aluno);
+  });
+
+  it("código muda quando o segredo muda", async () => {
+    const [a] = await obterLinhas({ forcarAtualizacao: true });
+    process.env.MENSALIDADES_LINK_SECRET = "outro-segredo";
+    const [b] = await obterLinhas({ forcarAtualizacao: true });
+    expect(a.codigo).not.toBe(b.codigo);
+  });
+
+  it("código inexistente não devolve ninguém", async () => {
+    await obterLinhas({ forcarAtualizacao: true });
+    expect(await buscarPorCodigo("000000000000")).toEqual([]);
+  });
+
+  it("resposta pública não vaza telefone nem código", async () => {
+    await obterLinhas({ forcarAtualizacao: true });
+    const [r] = await buscarMensalidades("samir", "3876");
+    expect(r).not.toHaveProperty("telefone");
+    expect(r).not.toHaveProperty("whatsapp");
+    expect(r).not.toHaveProperty("codigo");
+  });
+});
+
+describe("painel de cobrança", () => {
+  beforeEach(() => {
+    process.env.MENSALIDADES_SHEET_CSV_URL = "https://exemplo.test/planilha.csv";
+    process.env.MENSALIDADES_LINK_SECRET = "segredo-de-teste";
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => CSV })));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("agrega os totais por situação", async () => {
+    await obterLinhas({ forcarAtualizacao: true });
+    const { alunos, resumo } = await obterCobranca();
+
+    expect(resumo.totalAlunos).toBe(4);
+    expect(resumo.emDia).toBe(1);
+    expect(resumo.comAtraso).toBe(1);
+    // Pedro: Junho + Julho em atraso, R$ 300 cada
+    expect(resumo.totalAtrasado).toBe(600);
+    expect(alunos[0].mesesAtrasados).toBe(2); // ordena atraso primeiro
+  });
+});
+
+describe("casamento com o cadastro do Supabase", () => {
+  beforeEach(() => {
+    process.env.MENSALIDADES_SHEET_CSV_URL = "https://exemplo.test/planilha.csv";
+    process.env.MENSALIDADES_LINK_SECRET = "segredo-de-teste";
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => CSV })));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("casa nome idêntico", async () => {
+    await obterLinhas({ forcarAtualizacao: true });
+    const r = await casarAlunoDaPlanilha("Henrique Brito");
+    expect(r.situacao).toBe("exato");
+    expect(r.aluno.aluno).toBe("Henrique Brito");
+  });
+
+  it("casa por aproximação quando o cadastro tem nome mais curto", async () => {
+    await obterLinhas({ forcarAtualizacao: true });
+    const r = await casarAlunoDaPlanilha("Israel dos Santos");
+    expect(r.situacao).toBe("aproximado");
+    expect(r.aluno.aluno).toBe("Israel dos Santos Queiroz");
+  });
+
+  it("sugere quando sobrenomes batem mas o nome não", async () => {
+    await obterLinhas({ forcarAtualizacao: true });
+    const r = await casarAlunoDaPlanilha("Mariana Santana Silva");
+    expect(r.situacao).toBe("sugestao");
+    expect(r.sugestoes[0].aluno).toBe("Pedro Santana Silva");
+  });
+
+  it("avisa quando o aluno não existe na planilha", async () => {
+    await obterLinhas({ forcarAtualizacao: true });
+    const r = await casarAlunoDaPlanilha("Fulano Inexistente Beltrano");
+    expect(r.situacao).toBe("ausente");
+    expect(r.aluno).toBeNull();
   });
 });

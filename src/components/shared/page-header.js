@@ -13,6 +13,7 @@ const routeNames = {
   "/dashboard/frequencia": "Frequência",
   "/dashboard/documentos": "Documentos",
   "/dashboard/financeiro": "Financeiro",
+  "/dashboard/cobranca": "Cobrança",
   "/dashboard/relatorios": "Relatórios",
   "/dashboard/ferramentas": "Ferramentas",
   "/dashboard/configuracoes": "Configurações",

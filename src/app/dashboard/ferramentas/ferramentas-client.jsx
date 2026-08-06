@@ -59,10 +59,35 @@ function FerramentaCard({ ferramenta, origem }) {
             </a>
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
-          <QrCode className="h-3.5 w-3.5" />
+        <p className="text-xs text-muted-foreground mt-2">
           Sem login. Pode mandar no grupo de WhatsApp dos responsáveis.
         </p>
+      </div>
+
+      <div className="mt-5 pt-5 border-t border-border flex flex-col sm:flex-row sm:items-center gap-4">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/api/mensalidades/qr"
+          alt="QR Code da consulta de mensalidades"
+          width={120}
+          height={120}
+          className="shrink-0 border border-border rounded-lg"
+        />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+            <QrCode className="h-4 w-4" />
+            QR para o mural
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Imprime e cola na recepção ou no portão. O responsável aponta a câmera e cai direto na
+            consulta.
+          </p>
+          <Button asChild variant="outline" size="sm" className="mt-3">
+            <a href="/api/mensalidades/qr?download=1" download="qr-mensalidades.svg">
+              Baixar QR
+            </a>
+          </Button>
+        </div>
       </div>
     </div>
   );
