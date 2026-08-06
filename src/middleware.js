@@ -1,7 +1,24 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+/**
+ * Subdomínio dedicado da consulta (mensalidade.escolacastelodosaber.net):
+ * a raiz serve a consulta pública, sem passar pelo gate de login.
+ * O resto do app continua respondendo normal nesse host — quem cair em
+ * /dashboard ali segue sendo barrado pela autenticação.
+ */
+function ehSubdominioDaConsulta(request) {
+  const host = request.headers.get("host") || "";
+  return host.startsWith("mensalidade.") || host.startsWith("mensalidades.");
+}
+
 export async function middleware(request) {
+  if (ehSubdominioDaConsulta(request) && request.nextUrl.pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/mensalidades";
+    return NextResponse.rewrite(url);
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
