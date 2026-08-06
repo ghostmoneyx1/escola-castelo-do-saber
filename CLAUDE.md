@@ -50,18 +50,40 @@ src/app/
   auth/signout/            # POST → clears session
   dashboard/               # protected admin area (middleware-enforced)
     alunos/ boletins/ colaboradores/ configuracoes/
-    contratos/ documentos/ financeiro/ frequencia/
+    contratos/ documentos/ ferramentas/ financeiro/ frequencia/
     matriculas/ relatorios/ relatorios-trimestrais/ turmas/
   chamada/[classId]/       # attendance entry UI
   relatorio/[token]/       # PUBLIC report viewer — gated by token, not session
+  mensalidades/            # PUBLIC tuition lookup for guardians (no session)
   api/
     chamada/[classId]/     # GET roster for class
     chamada/submit/        # POST attendance batch
+    mensalidades/consulta/ # POST {nome, tel} → pending months + payment links
     relatorio/gerar-token/ # mints opaque token for parent access
     relatorio/submit/      # save quarterly report
 ```
 
-The **token-gated public route** (`/relatorio/[token]` + `/api/relatorio/gerar-token`) is the only non-authenticated surface besides `/login`. Tokens live in the `report_tokens` table. Any change here is a security-sensitive change — preserve token entropy, revocation, and expiry semantics.
+The **token-gated public route** (`/relatorio/[token]` + `/api/relatorio/gerar-token`) is the only non-authenticated surface besides `/login` and `/mensalidades`. Tokens live in the `report_tokens` table. Any change here is a security-sensitive change — preserve token entropy, revocation, and expiry semantics.
+
+### Consulta de Mensalidades (`/mensalidades`)
+
+Public tool the school shares with guardians. Guardian types the child's name +
+the last 4 digits of the responsible party's phone, and sees the open months with
+an InfinitePay payment link per month.
+
+**Its data does not live in Supabase.** `src/lib/mensalidades/sheet.js` reads the
+school's "SISTEMA DE COBRANÇA" Google Sheet live, via its *Publish to web → CSV*
+URL (`MENSALIDADES_SHEET_CSV_URL`, server-only), with a 60s in-process cache. The
+sheet stays the source of truth — the secretariat keeps editing it as before.
+
+Sheet layout the parser expects (header row auto-detected by the `ALUNO` column):
+`ALUNO | RESPONSÁVEL | TELEFONE | SÉRIE | VALOR | JANEIRO … DEZEMBRO`. Each month
+cell is `PAGO` (settled, hidden), a `https://…` payment link (open), `DEVE`
+(overdue), `À VENCER` (upcoming, no link yet), or empty (never charged — skipped).
+
+`/api/mensalidades/consulta` is rate-limited (20 hits / 5 min per IP) because it is
+unauthenticated and returns children's names. `/dashboard/ferramentas` lists the
+public URL so the school can copy it.
 
 ### Components
 
@@ -91,7 +113,8 @@ Required in any environment that runs the app:
 
 - `NEXT_PUBLIC_SUPABASE_URL` — used by all four Supabase clients
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — used by client/server/middleware clients
-- `SUPABASE_SERVICE_ROLE_KEY` — required only by `src/lib/supabase/admin.js` (token route, anything that bypasses RLS)
+- `SUPABASE_SERVICE_ROLE_KEY` — required only by `src/lib/supabase/admin.js` (token route, rate limiting, anything that bypasses RLS)
+- `MENSALIDADES_SHEET_CSV_URL` — server-only. "Publish to web → CSV" URL of the billing Google Sheet, consumed by `/api/mensalidades/consulta`. Without it that route returns 502; the rest of the app is unaffected.
 
 The middleware degrades gracefully if env vars are missing (lets the request through unauthenticated), so missing env in dev shows as "no auth gate" rather than an explicit error — verify env when auth behaves unexpectedly.
 

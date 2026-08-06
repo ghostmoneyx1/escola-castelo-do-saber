@@ -23,6 +23,7 @@ import {
   BarChart3,
   ClipboardCheck,
   UserCheck,
+  Wrench,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
@@ -45,6 +46,7 @@ const navigation = [
   { name: "Relatórios",    href: "/dashboard/relatorios",             icon: BarChart3 },
   { name: "Semestral",   href: "/dashboard/relatorios-trimestrais", icon: ClipboardCheck },
   { name: "Colaboradores", href: "/dashboard/colaboradores",         icon: UserCheck },
+  { name: "Ferramentas",   href: "/dashboard/ferramentas",           icon: Wrench },
 ];
 
 const bottomNav = [

@@ -25,6 +25,11 @@ export const gerarTokenSchema = z.object({
 
 export const tokenParamSchema = z.string().regex(/^[a-f0-9]{48}$/, "Token inválido");
 
+export const consultaMensalidadesSchema = z.object({
+  nome: z.string().trim().min(3, "Digite pelo menos 3 letras do nome").max(120),
+  tel: z.string().regex(/^\d{4}$/, "Digite os 4 últimos dígitos do telefone"),
+});
+
 /**
  * Valida body de request usando schema Zod.
  * Retorna { data } ou NextResponse 400 pra dar `return`.

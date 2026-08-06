@@ -14,6 +14,7 @@ const routeNames = {
   "/dashboard/documentos": "Documentos",
   "/dashboard/financeiro": "Financeiro",
   "/dashboard/relatorios": "Relatórios",
+  "/dashboard/ferramentas": "Ferramentas",
   "/dashboard/configuracoes": "Configurações",
 };
 

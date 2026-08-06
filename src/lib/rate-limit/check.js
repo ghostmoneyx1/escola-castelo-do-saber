@@ -23,7 +23,15 @@ export function getClientIp(request) {
  * @returns {Promise<{allowed: boolean, remaining: number, resetAt: Date|null}>}
  */
 export async function checkRateLimit({ key, max, windowSec }) {
-  const supabase = createAdminClient();
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch (e) {
+    // Sem SUPABASE_SERVICE_ROLE_KEY (dev local). Fail-open, igual erro de RPC.
+    console.error("rate_limit: admin client indisponível:", e.message);
+    return { allowed: true, remaining: max, resetAt: null };
+  }
+
   const { data, error } = await supabase.rpc("rate_limit_hit", {
     p_key: key,
     p_max: max,
