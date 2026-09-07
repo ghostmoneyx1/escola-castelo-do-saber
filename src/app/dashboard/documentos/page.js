@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SelectSearch } from "@/components/shared/select-search";
 import {
   Select,
   SelectContent,
@@ -260,11 +261,12 @@ export default function DocumentosPage() {
               <label className="text-sm font-medium">Aluno</label>
               <Select value={newDoc.student_id} onValueChange={(v) => setNewDoc((p) => ({ ...p, student_id: v }))}>
                 <SelectTrigger><SelectValue>{newDoc.student_id ? students.find(s => s.id === newDoc.student_id)?.name || newDoc.student_id : "Selecione o aluno"}</SelectValue></SelectTrigger>
-                <SelectContent>
-                  <div className="p-2">
-                    <Input placeholder="Buscar aluno..." value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} className="h-8" />
-                  </div>
-                  {filteredStudentsList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                <SelectContent header={<SelectSearch value={studentSearch} onChange={setStudentSearch} placeholder="Buscar aluno..." />}>
+                  {filteredStudentsList.length === 0 ? (
+                    <p className="px-2 py-3 text-sm text-muted-foreground">Nenhum aluno encontrado.</p>
+                  ) : (
+                    filteredStudentsList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)
+                  )}
                 </SelectContent>
               </Select>
             </div>

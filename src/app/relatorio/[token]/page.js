@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { SCHOOL_LEGAL_NAME } from "@/lib/constants";
 import {
   CHECKLIST, RESPOSTAS, COLOR_STYLES, QUARTER_LABELS,
 } from "@/lib/relatorio-checklist";
@@ -113,7 +114,7 @@ export default function RelatorioPublicoPage() {
             <School className="h-5 w-5 text-white" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground font-medium">Escola Castelo do Saber</p>
+            <p className="text-xs text-muted-foreground font-medium">{SCHOOL_LEGAL_NAME}</p>
             <p className="text-sm font-bold text-foreground">Avaliação Semestral</p>
           </div>
           <div className="ml-auto text-right">

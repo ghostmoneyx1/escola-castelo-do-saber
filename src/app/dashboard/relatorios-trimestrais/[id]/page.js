@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { SCHOOL_LEGAL_NAME } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import {
   CHECKLIST, RESPOSTA_LABELS, COLOR_STYLES, QUARTER_LABELS, STATUS_MAP,
@@ -103,7 +104,7 @@ export default function ViewRelatorioPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", opacity: 0.75, marginBottom: 4 }}>
-                Escola Castelo do Saber
+                {SCHOOL_LEGAL_NAME}
               </p>
               <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Relatório Semestral</h1>
               <p style={{ fontSize: 13, marginTop: 6, opacity: 0.85 }}>
@@ -332,7 +333,7 @@ export default function ViewRelatorioPage() {
           {/* ── Rodapé ── */}
           <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <p style={{ margin: 0, fontSize: 11, color: "#94a3b8" }}>
-              Escola Castelo do Saber &bull; {s?.units?.name}
+              {SCHOOL_LEGAL_NAME} &bull; {s?.units?.name}
             </p>
             <p style={{ margin: 0, fontSize: 11, color: "#94a3b8" }}>
               Emitido em {filledDate}

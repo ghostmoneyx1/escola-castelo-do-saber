@@ -14,6 +14,7 @@ export function DocumentHeader({ unit, logoSrc }) {
   return (
     <View style={baseStyles.headerContainer}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 6 }}>
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- Image do @react-pdf/renderer, não <img> */}
         {logoSrc && <Image src={logoSrc} style={{ width: 56, height: 56, objectFit: "contain" }} />}
         <View style={{ alignItems: "center" }}>
           <Text style={baseStyles.schoolName}>{SCHOOL_LEGAL_NAME}</Text>

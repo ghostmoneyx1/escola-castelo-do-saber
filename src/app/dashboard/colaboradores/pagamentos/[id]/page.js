@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, Printer } from "lucide-react";
 import Link from "next/link";
 import { MONTHS } from "@/lib/constants";
-import { SCHOOL_NAME } from "@/lib/constants";
+import { SCHOOL_LEGAL_NAME } from "@/lib/constants";
 
 function fmt(value) {
   return Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
@@ -86,7 +86,7 @@ export default function ReciboPage() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Recibo de Pagamento</p>
-              <h2 className="text-lg font-bold text-foreground font-heading">{SCHOOL_NAME}</h2>
+              <h2 className="text-lg font-bold text-foreground font-heading">{SCHOOL_LEGAL_NAME}</h2>
             </div>
             <div className="text-right">
               <p className="text-xs text-muted-foreground">Competência</p>
@@ -173,7 +173,7 @@ export default function ReciboPage() {
           <div className="grid grid-cols-2 gap-12">
             <div className="text-center">
               <div className="border-t border-slate-400 pt-2 mt-10">
-                <p className="text-xs text-muted-foreground">{SCHOOL_NAME}</p>
+                <p className="text-xs text-muted-foreground">{SCHOOL_LEGAL_NAME}</p>
                 <p className="text-xs text-muted-foreground">Empregador</p>
               </div>
             </div>

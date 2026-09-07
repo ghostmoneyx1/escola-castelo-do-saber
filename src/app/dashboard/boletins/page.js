@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
+import { SCHOOL_LEGAL_NAME } from "@/lib/constants";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SelectSearch } from "@/components/shared/select-search";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -195,20 +197,16 @@ export default function BoletinsPage() {
                 {selectedStudentData ? `${selectedStudentData.name} — ${selectedStudentData.classes?.grade} ${selectedStudentData.classes?.name}` : undefined}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent>
-              <div className="p-2">
-                <Input
-                  placeholder="Buscar aluno..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-4 pr-4 py-2 h-auto bg-white border-gray-200 text-sm"
-                />
-              </div>
-              {filteredStudents.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name} — {s.classes?.grade} {s.classes?.name}
-                </SelectItem>
-              ))}
+            <SelectContent header={<SelectSearch value={search} onChange={setSearch} placeholder="Buscar aluno..." />}>
+              {filteredStudents.length === 0 ? (
+                <p className="px-2 py-3 text-sm text-muted-foreground">Nenhum aluno encontrado.</p>
+              ) : (
+                filteredStudents.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name} — {s.classes?.grade} {s.classes?.name}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -241,8 +239,8 @@ export default function BoletinsPage() {
         <div id="printable-boletim" className="bg-white">
           {/* Print Header */}
           <div className="hidden print:flex flex-col items-center justify-center mb-10 pb-6 border-b-2 border-slate-200">
-            <Image src="/logo.png" alt="Escola Castelo do Saber Logo" width={300} height={80} priority className="h-20 w-auto mb-4" />
-            <h1 className="text-2xl font-black uppercase tracking-tight text-slate-800">Escola Castelo do Saber</h1>
+            <Image src="/logo.png" alt={`Logo do ${SCHOOL_LEGAL_NAME}`} width={300} height={80} priority className="h-20 w-auto mb-4" />
+            <h1 className="text-xl font-black uppercase tracking-tight text-slate-800 text-center">{SCHOOL_LEGAL_NAME}</h1>
             <p className="text-sm text-slate-500 font-medium">Educação Infantil e Ensino Fundamental</p>
             <p className="text-sm text-slate-500">Boletim Escolar Oficial - Ano Letivo {new Date().getFullYear()}</p>
           </div>
@@ -353,12 +351,12 @@ export default function BoletinsPage() {
               <div className="text-center w-64">
                 <div className="border-t border-slate-800 mb-2"></div>
                 <p className="font-bold text-sm text-slate-800 uppercase tracking-widest">Diretoria</p>
-                <p className="text-xs text-slate-500 font-medium">Escola Castelo do Saber</p>
+                <p className="text-xs text-slate-500 font-medium">{SCHOOL_LEGAL_NAME}</p>
               </div>
               <div className="text-center w-64">
                 <div className="border-t border-slate-800 mb-2"></div>
                 <p className="font-bold text-sm text-slate-800 uppercase tracking-widest">Secretaria</p>
-                <p className="text-xs text-slate-500 font-medium">Escola Castelo do Saber</p>
+                <p className="text-xs text-slate-500 font-medium">{SCHOOL_LEGAL_NAME}</p>
               </div>
             </div>
             <div className="text-center mt-16">

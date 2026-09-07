@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SelectSearch } from "@/components/shared/select-search";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -145,11 +146,12 @@ export default function NovoContratoPage() {
                   {form.student_id ? students.find(s => s.id === form.student_id)?.name || "Selecione" : "Selecione o aluno"}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
-                <div className="p-2">
-                  <Input placeholder="Buscar aluno..." value={studentSearch} onChange={e => setStudentSearch(e.target.value)} className="h-8" />
-                </div>
-                {filteredStudents.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              <SelectContent header={<SelectSearch value={studentSearch} onChange={setStudentSearch} placeholder="Buscar aluno..." />}>
+                {filteredStudents.length === 0 ? (
+                  <p className="px-2 py-3 text-sm text-muted-foreground">Nenhum aluno encontrado.</p>
+                ) : (
+                  filteredStudents.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)
+                )}
               </SelectContent>
             </Select>
           </div>
