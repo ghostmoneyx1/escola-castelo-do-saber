@@ -1,71 +1,97 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { baseStyles, colors, formatDate } from "./styles";
 import { DocumentHeader } from "./header";
-import { DocumentFooter, Signature } from "./footer";
-import { formatBirthDate, resolveGuardians } from "./student-info";
+import { DocumentFooter } from "./footer";
+import { formatBirthDate, levelText, resolveGuardians } from "./student-info";
+import {
+  HISTORICO_SUBJECTS,
+  HISTORICO_YEARS,
+  formatScore,
+  subjectAverages,
+  yearIndex,
+} from "./historico-data";
+import { SCHOOL_LEGAL_NAME } from "@/lib/constants";
+
+// Tudo dimensionado para caber em UMA folha A4 (pedido da secretaria).
+const PAGE_PADDING = 30;
 
 const s = StyleSheet.create({
+  page: {
+    padding: PAGE_PADDING,
+    paddingBottom: 45,
+    fontSize: 9,
+    fontFamily: "Helvetica",
+    color: colors.text,
+    lineHeight: 1.3,
+  },
+  title: {
+    fontSize: 12,
+    fontFamily: "Helvetica-Bold",
+    textAlign: "center",
+    color: colors.primary,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  // Bloco de identificação
+  infoBox: {
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   infoRow: {
     flexDirection: "row",
-    marginBottom: 4,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.border,
+  },
+  infoCell: {
+    flexDirection: "row",
+    paddingVertical: 2.5,
+    paddingHorizontal: 5,
+    borderRightWidth: 0.5,
+    borderRightColor: colors.border,
   },
   infoLabel: {
-    fontSize: 9,
+    fontSize: 8,
     fontFamily: "Helvetica-Bold",
-    width: 120,
     color: colors.muted,
+    marginRight: 4,
   },
   infoValue: {
-    fontSize: 9,
+    fontSize: 8.5,
     flex: 1,
   },
   sectionTitle: {
-    fontSize: 10,
+    fontSize: 8.5,
     fontFamily: "Helvetica-Bold",
     color: colors.primary,
-    marginTop: 15,
-    marginBottom: 6,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    marginTop: 8,
+    marginBottom: 3,
   },
-  // Grade table
-  gradeTable: {
+  // Tabelas
+  table: {
     borderWidth: 1,
     borderColor: colors.border,
-    marginTop: 8,
   },
-  gradeRow: {
+  row: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
     borderBottomColor: colors.border,
   },
-  gradeHeaderRow: {
+  headRow: {
     flexDirection: "row",
     backgroundColor: colors.primary,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.border,
   },
-  subjectCol: {
-    width: "30%",
-    padding: 4,
+  cell: {
+    paddingVertical: 3,
+    paddingHorizontal: 4,
     borderRightWidth: 0.5,
     borderRightColor: colors.border,
+    justifyContent: "center",
   },
-  gradeCol: {
-    width: "10%",
-    padding: 4,
-    borderRightWidth: 0.5,
-    borderRightColor: colors.border,
-    alignItems: "center",
-  },
-  chCol: {
-    width: "10%",
-    padding: 4,
-    borderRightWidth: 0.5,
-    borderRightColor: colors.border,
-    alignItems: "center",
-  },
-  headerText: {
+  headText: {
     fontSize: 7,
     fontFamily: "Helvetica-Bold",
     color: "#ffffff",
@@ -78,228 +104,200 @@ const s = StyleSheet.create({
   cellTextLeft: {
     fontSize: 8,
   },
-  // School history table
-  schoolRow: {
-    flexDirection: "row",
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.border,
+  cellTextBold: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
   },
-  schoolCol: {
-    padding: 4,
-    borderRightWidth: 0.5,
-    borderRightColor: colors.border,
-  },
-  legendBox: {
-    marginTop: 12,
-    padding: 8,
-    backgroundColor: colors.lightBg,
-    borderRadius: 3,
-  },
-  legendText: {
+  legend: {
+    marginTop: 5,
     fontSize: 7,
     color: colors.muted,
   },
+  // Certificado
+  certBox: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+  },
+  certTitle: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: colors.primary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  certText: {
+    fontSize: 9,
+    lineHeight: 1.6,
+    textAlign: "justify",
+  },
+  date: {
+    fontSize: 9,
+    textAlign: "right",
+    marginTop: 12,
+  },
+  signatures: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 30,
+  },
+  signature: {
+    alignItems: "center",
+    width: "42%",
+  },
 });
 
-const SUBJECTS = [
-  "Língua Portuguesa",
-  "Língua Estrangeira (Inglês)",
-  "Geografia",
-  "História",
-  "Ciências",
-  "Matemática",
-  "Educação Artística",
-  "Ensino Religioso",
-  "Educação Física",
-];
+const SUBJECT_COL = "25%";
+const YEAR_COL = "15%";
+const SCORE_COL = "7.5%";
 
-const YEARS = ["1º Ano", "2º Ano", "3º Ano", "4º Ano", "5º Ano"];
+function InfoCell({ label, value, width, bold }) {
+  return (
+    <View style={[s.infoCell, { width }]}>
+      <Text style={s.infoLabel}>{label}</Text>
+      <Text style={[s.infoValue, bold ? baseStyles.bold : null]}>{value || " "}</Text>
+    </View>
+  );
+}
 
 export function HistoricoEscolar({ student, guardians, grades, unit, logoSrc }) {
   const { mae, pai, responsavel } = resolveGuardians(guardians);
-
-  // Organize grades by subject name and year
-  function getGrade(subjectName, yearIndex) {
-    // yearIndex 0 = 1º Ano, etc.
-    // We match by subject name and the grade's year context
-    const match = (grades || []).find(
-      (g) =>
-        g.subjects?.name &&
-        subjectName.toLowerCase().includes(g.subjects.name.toLowerCase()) &&
-        g.unit === yearIndex + 1
-    );
-    return match?.score;
-  }
-
-  // Calculate average per subject across all units for current year
-  function getSubjectAvg(subjectName) {
-    const matching = (grades || []).filter(
-      (g) => g.subjects?.name && subjectName.toLowerCase().includes(g.subjects.name.toLowerCase())
-    );
-    if (matching.length === 0) return null;
-    const sum = matching.reduce((a, g) => a + Number(g.score || 0), 0);
-    return (sum / matching.length).toFixed(1);
-  }
+  const averages = subjectAverages(grades);
+  const currentYear = new Date().getFullYear();
+  const currentIndex = yearIndex(student.className);
 
   return (
     <Document>
-      <Page size="A4" style={[baseStyles.page, { padding: 35 }]}>
+      <Page size="A4" style={s.page}>
         <DocumentHeader unit={unit} logoSrc={logoSrc} />
 
-        <Text style={[baseStyles.title, { fontSize: 13, marginTop: 15, marginBottom: 15 }]}>
-          Histórico Escolar {student.level === "Educação Infantil" ? "da Educação Infantil" : "do Ensino Fundamental I"}
-        </Text>
+        <Text style={s.title}>Histórico Escolar {levelText(student.level)}</Text>
 
-        {/* Student info */}
-        <View style={{ marginBottom: 12 }}>
+        {/* Identificação */}
+        <View style={s.infoBox}>
           <View style={s.infoRow}>
-            <Text style={s.infoLabel}>Nome do Aluno:</Text>
-            <Text style={[s.infoValue, { fontFamily: "Helvetica-Bold" }]}>{student.name}</Text>
+            <InfoCell label="Nome do Aluno:" value={student.name} width="70%" bold />
+            <InfoCell label="Data de Nascimento:" value={formatBirthDate(student.birth_date)} width="30%" />
           </View>
           <View style={s.infoRow}>
-            <Text style={s.infoLabel}>Data de Nascimento:</Text>
-            <Text style={s.infoValue}>
-              {formatBirthDate(student.birth_date) || "—"}
-            </Text>
+            <InfoCell label="Mãe:" value={mae?.name || (!pai && responsavel ? responsavel.name : "")} width="50%" />
+            <InfoCell label="Pai:" value={pai?.name} width="50%" />
           </View>
-          <View style={{ flexDirection: "row" }}>
-            <View style={{ flex: 1 }}>
-              <View style={s.infoRow}>
-                <Text style={s.infoLabel}>Mãe:</Text>
-                <Text style={s.infoValue}>{mae?.name || (!pai && responsavel ? responsavel.name : "—")}</Text>
-              </View>
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={s.infoRow}>
-                <Text style={s.infoLabel}>Pai:</Text>
-                <Text style={s.infoValue}>{pai?.name || "—"}</Text>
-              </View>
-            </View>
-          </View>
-          <View style={{ flexDirection: "row" }}>
-            <View style={{ flex: 1 }}>
-              <View style={s.infoRow}>
-                <Text style={s.infoLabel}>Município:</Text>
-                <Text style={s.infoValue}>Salvador</Text>
-              </View>
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={s.infoRow}>
-                <Text style={s.infoLabel}>Estado:</Text>
-                <Text style={s.infoValue}>Bahia</Text>
-              </View>
-            </View>
+          <View style={[s.infoRow, { borderBottomWidth: 0 }]}>
+            <InfoCell label="Município:" value="Salvador" width="40%" />
+            <InfoCell label="Estado:" value="Bahia" width="30%" />
+            <InfoCell label="País:" value="Brasil" width="30%" />
           </View>
         </View>
 
-        {/* Grades Table */}
+        {/* Notas por área */}
         <Text style={s.sectionTitle}>Áreas de Conhecimento</Text>
-        <View style={s.gradeTable}>
-          {/* Header */}
-          <View style={s.gradeHeaderRow}>
-            <View style={[s.subjectCol]}>
-              <Text style={s.headerText}>Disciplina</Text>
+        <View style={s.table}>
+          <View style={s.headRow}>
+            <View style={[s.cell, { width: SUBJECT_COL }]}>
+              <Text style={s.headText}>Áreas de Conhecimento</Text>
             </View>
-            {YEARS.map((year) => (
-              <View key={year} style={[s.gradeCol]}>
-                <Text style={s.headerText}>{year}</Text>
+            {HISTORICO_YEARS.map((year) => (
+              <View key={year} style={{ width: YEAR_COL, borderRightWidth: 0.5, borderRightColor: colors.border }}>
+                <Text style={[s.headText, { paddingVertical: 2 }]}>{year}</Text>
+                <View style={{ flexDirection: "row", borderTopWidth: 0.5, borderTopColor: colors.border }}>
+                  <Text style={[s.headText, { width: "50%", paddingVertical: 2, borderRightWidth: 0.5, borderRightColor: colors.border }]}>N</Text>
+                  <Text style={[s.headText, { width: "50%", paddingVertical: 2 }]}>CH</Text>
+                </View>
               </View>
             ))}
-            <View style={[s.gradeCol]}>
-              <Text style={s.headerText}>CH</Text>
-            </View>
           </View>
 
-          {/* Subjects */}
-          {SUBJECTS.map((subject, idx) => (
-            <View
-              key={subject}
-              style={[s.gradeRow, idx % 2 === 0 ? { backgroundColor: "#fafafa" } : {}]}
-            >
-              <View style={s.subjectCol}>
-                <Text style={s.cellTextLeft}>{subject}</Text>
+          {HISTORICO_SUBJECTS.map((subject) => (
+            <View key={subject.label} style={s.row}>
+              <View style={[s.cell, { width: SUBJECT_COL }]}>
+                <Text style={s.cellTextLeft}>{subject.label}</Text>
               </View>
-              {YEARS.map((_, yi) => {
-                const score = getGrade(subject, yi);
-                return (
-                  <View key={yi} style={s.gradeCol}>
+              {HISTORICO_YEARS.map((year, index) => (
+                <View key={year} style={{ flexDirection: "row", width: YEAR_COL }}>
+                  <View style={[s.cell, { width: "50%" }]}>
                     <Text style={s.cellText}>
-                      {score != null ? score : "—"}
+                      {index === currentIndex ? formatScore(averages[subject.label]) : " "}
                     </Text>
                   </View>
-                );
-              })}
-              <View style={s.chCol}>
-                <Text style={s.cellText}>—</Text>
-              </View>
+                  <View style={[s.cell, { width: "50%" }]}>
+                    <Text style={s.cellText}> </Text>
+                  </View>
+                </View>
+              ))}
             </View>
           ))}
-        </View>
 
-        {/* School history */}
-        <Text style={s.sectionTitle}>Estudos Realizados</Text>
-        <View style={s.gradeTable}>
-          <View style={s.gradeHeaderRow}>
-            <View style={[s.schoolCol, { width: "15%" }]}>
-              <Text style={s.headerText}>Série</Text>
+          <View style={[s.row, { borderBottomWidth: 0 }]}>
+            <View style={[s.cell, { width: SUBJECT_COL }]}>
+              <Text style={s.cellTextBold}>Total de Carga Horária</Text>
             </View>
-            <View style={[s.schoolCol, { width: "15%" }]}>
-              <Text style={s.headerText}>Ano</Text>
-            </View>
-            <View style={[s.schoolCol, { width: "45%" }]}>
-              <Text style={s.headerText}>Estabelecimento de Ensino</Text>
-            </View>
-            <View style={[s.schoolCol, { width: "15%" }]}>
-              <Text style={s.headerText}>Município</Text>
-            </View>
-            <View style={[s.schoolCol, { width: "10%" }]}>
-              <Text style={s.headerText}>UF</Text>
-            </View>
+            {HISTORICO_YEARS.map((year) => (
+              <View key={year} style={[s.cell, { width: YEAR_COL }]}>
+                <Text style={s.cellText}> </Text>
+              </View>
+            ))}
           </View>
-          {YEARS.map((year, i) => (
-            <View key={i} style={s.schoolRow}>
-              <View style={[s.schoolCol, { width: "15%" }]}>
-                <Text style={s.cellText}>{year}</Text>
-              </View>
-              <View style={[s.schoolCol, { width: "15%" }]}>
-                <Text style={s.cellText}>{i === 0 ? new Date().getFullYear() - (YEARS.length - 1 - i) : "—"}</Text>
-              </View>
-              <View style={[s.schoolCol, { width: "45%" }]}>
-                <Text style={s.cellTextLeft}>
-                  {i === 0 ? (student.previous_school || "Escola Castelo do Saber") : "—"}
-                </Text>
-              </View>
-              <View style={[s.schoolCol, { width: "15%" }]}>
-                <Text style={s.cellText}>{i === 0 ? "Salvador" : "—"}</Text>
-              </View>
-              <View style={[s.schoolCol, { width: "10%" }]}>
-                <Text style={s.cellText}>{i === 0 ? "BA" : "—"}</Text>
-              </View>
-            </View>
-          ))}
         </View>
 
-        {/* Legend */}
-        <View style={s.legendBox}>
-          <Text style={s.legendText}>
-            LEGENDA: N — Nota | CH — Carga Horária | I — Integrado | A — Aproximado
+        {/* Estudos realizados */}
+        <Text style={s.sectionTitle}>Estudos Realizados</Text>
+        <View style={s.table}>
+          <View style={s.headRow}>
+            <View style={[s.cell, { width: "12%" }]}><Text style={s.headText}>Série</Text></View>
+            <View style={[s.cell, { width: "12%" }]}><Text style={s.headText}>Ano</Text></View>
+            <View style={[s.cell, { width: "51%" }]}><Text style={s.headText}>Estabelecimento de Ensino</Text></View>
+            <View style={[s.cell, { width: "17%" }]}><Text style={s.headText}>Município</Text></View>
+            <View style={[s.cell, { width: "8%" }]}><Text style={s.headText}>UF</Text></View>
+          </View>
+          {HISTORICO_YEARS.map((year, index) => {
+            const isCurrent = index === currentIndex;
+            return (
+              <View key={year} style={[s.row, index === HISTORICO_YEARS.length - 1 ? { borderBottomWidth: 0 } : null]}>
+                <View style={[s.cell, { width: "12%" }]}><Text style={s.cellText}>{year}</Text></View>
+                <View style={[s.cell, { width: "12%" }]}><Text style={s.cellText}>{isCurrent ? currentYear : " "}</Text></View>
+                <View style={[s.cell, { width: "51%" }]}><Text style={s.cellTextLeft}>{isCurrent ? SCHOOL_LEGAL_NAME : " "}</Text></View>
+                <View style={[s.cell, { width: "17%" }]}><Text style={s.cellText}>{isCurrent ? "Salvador" : " "}</Text></View>
+                <View style={[s.cell, { width: "8%" }]}><Text style={s.cellText}>{isCurrent ? "BA" : " "}</Text></View>
+              </View>
+            );
+          })}
+        </View>
+
+        <Text style={s.legend}>
+          LEGENDA: N — Nota | CH — Carga Horária | I — Integrado | A — Aproximado | N — Nivelado
+        </Text>
+
+        {/* Certificado — os traços ficam em branco de propósito: a secretaria preenche à mão */}
+        <View style={s.certBox}>
+          <Text style={s.certTitle}>Certificado</Text>
+          <Text style={s.certText} hyphenationPenalty={10000}>
+            Certificamos que <Text style={baseStyles.bold}>{student.name}</Text> concluiu o
+            {" "}________________ {levelText(student.level)} no ano letivo de ____________,
+            na forma das Leis de Educação vigente no país e do Regime Escolar.
           </Text>
         </View>
 
-        <View style={{ flexDirection: "row", marginTop: 30, justifyContent: "space-between" }}>
-          <View style={{ alignItems: "center", width: "45%" }}>
+        <Text style={s.date}>{formatDate()}</Text>
+
+        <View style={s.signatures}>
+          <View style={s.signature}>
             <View style={[baseStyles.signatureLine, { width: "100%" }]} />
             <Text style={baseStyles.signatureName}>Urlania Laerte C. Mota</Text>
-            <Text style={baseStyles.signatureRole}>Diretora</Text>
+            <Text style={baseStyles.signatureRole}>Diretora (carimbo e assinatura)</Text>
           </View>
-          <View style={{ alignItems: "center", width: "45%" }}>
+          <View style={s.signature}>
             <View style={[baseStyles.signatureLine, { width: "100%" }]} />
             <Text style={baseStyles.signatureName}>Secretário(a)</Text>
             <Text style={baseStyles.signatureRole}>Carimbo e assinatura</Text>
           </View>
         </View>
 
-        <DocumentFooter />
+        <DocumentFooter style={{ left: PAGE_PADDING, right: PAGE_PADDING, bottom: 18 }} />
       </Page>
     </Document>
   );

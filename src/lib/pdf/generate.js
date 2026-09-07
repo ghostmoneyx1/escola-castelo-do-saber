@@ -79,6 +79,9 @@ function getDocumentComponent(type, data) {
     case "Atestado de Frequência":
       return AtestadoFrequencia({ student, guardians, unit, logoSrc });
 
+    case "Atestado de Transferência":
+      return AtestadoTransferencia({ student, guardians, unit, logoSrc });
+
     case "Histórico Escolar":
       return HistoricoEscolar({ student, guardians, grades, unit, logoSrc });
 

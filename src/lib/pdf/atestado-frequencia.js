@@ -16,7 +16,7 @@ export function AtestadoFrequencia({ student, guardians, unit, logoSrc }) {
           Atestado de Frequência {new Date().getFullYear()}
         </Text>
 
-        <Text style={baseStyles.bodyIndented}>
+        <Text style={baseStyles.bodyIndented} hyphenationPenalty={10000}>
           Atesto para os devidos fins, que{" "}
           {student.gender === "Feminino" ? "a aluna " : "o aluno "}
           <Text style={baseStyles.bold}>{student.name}</Text>

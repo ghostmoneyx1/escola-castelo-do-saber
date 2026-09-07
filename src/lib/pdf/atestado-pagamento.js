@@ -24,7 +24,7 @@ export function AtestadoPagamento({ student, guardians, unit, payments, logoSrc 
           Atestado de Pagamento de Mensalidade
         </Text>
 
-        <Text style={baseStyles.bodyIndented}>
+        <Text style={baseStyles.bodyIndented} hyphenationPenalty={10000}>
           Atesto para os devidos fins, que{" "}
           {student.gender === "Feminino" ? "a aluna " : "o aluno "}
           <Text style={baseStyles.bold}>{student.name}</Text>
@@ -76,7 +76,7 @@ export function AtestadoQuitacao({ student, guardians, unit, logoSrc }) {
           Atestado de Quitação de Débito
         </Text>
 
-        <Text style={baseStyles.bodyIndented}>
+        <Text style={baseStyles.bodyIndented} hyphenationPenalty={10000}>
           Atesto para os devidos fins, que{" "}
           {student.gender === "Feminino" ? "a aluna " : "o aluno "}
           <Text style={baseStyles.bold}>{student.name}</Text>

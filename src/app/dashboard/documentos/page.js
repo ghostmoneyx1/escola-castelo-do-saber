@@ -140,7 +140,7 @@ export default function DocumentosPage() {
       </PageHeader>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
         {DOCUMENT_TYPES.map((type, i) => {
           const count = documents.filter((d) => d.type === type).length;
           return (

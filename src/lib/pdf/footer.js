@@ -1,11 +1,12 @@
 import { View, Text } from "@react-pdf/renderer";
 import { baseStyles } from "./styles";
+import { SCHOOL_LEGAL_NAME } from "@/lib/constants";
 
-export function DocumentFooter() {
+export function DocumentFooter({ style }) {
   return (
-    <View style={baseStyles.footer}>
+    <View style={[baseStyles.footer, style]}>
       <Text style={baseStyles.footerText}>
-        Escola Castelo do Saber — Sistema de Gestão Escolar — Documento gerado eletronicamente
+        {SCHOOL_LEGAL_NAME} — Documento gerado eletronicamente
       </Text>
     </View>
   );

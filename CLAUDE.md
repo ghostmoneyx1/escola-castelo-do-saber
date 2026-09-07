@@ -119,6 +119,12 @@ one student's `?a=` link. `/dashboard/ferramentas` lists the public URL and the 
 
 `src/lib/pdf/*` renders quarterly reports and attestations using `@react-pdf/renderer`. These are server-rendered and streamed by the report routes. Keep PDF components out of Client Component trees.
 
+- **Razão social nos documentos.** Header, footer e histórico usam `SCHOOL_LEGAL_NAME` ("Instituto de Educação e Cidadania Castelo do Saber"), exigência da secretaria após a mudança de razão social. `SCHOOL_NAME` ("Escola Castelo do Saber") continua sendo o nome fantasia da UI.
+- **Unidade → CNPJ/endereço.** `units.name` no banco é "Boa Vista do Lobato" (matriz, CNPJ 0001-58) e "Alto do Cabrito" (filial, CNPJ 0002-39). `isFilialUnit()` em `header.js` detecta a filial por regex (`filial|cabrito`) — não compare com "Filial"/"Matriz".
+- **Histórico Escolar** cabe em uma folha A4 por exigência da escola. Lista fixa de 6 matérias em `historico-data.js` (com aliases para casar com `subjects.name`), nota = média anual das unidades na coluna da série atual, CH em branco. Os traços do bloco "Certificado" (série e ano letivo) ficam vazios de propósito: a secretaria preenche à mão.
+- **Tipos de documento** vivem em dois lugares: `DOCUMENT_TYPES` (constants.js) e o CHECK de `documents.type` no schema. Novo tipo exige os dois + um `case` em `generate.js`.
+- Os arquivos do PDF são `.js` com JSX; o vitest só transforma `.jsx`. Para renderizar um PDF fora do Next (preview), use um config temporário com plugin `transformWithOxc(code, id, { lang: "jsx" })` para `src/**/*.js`.
+
 ## Design system — enforced
 
 `DESIGN_SYSTEM.md` is **not aspirational**, it lists concrete tokens and an explicit anti-pattern list. Notable hard rules:

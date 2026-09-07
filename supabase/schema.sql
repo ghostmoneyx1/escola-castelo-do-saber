@@ -120,6 +120,7 @@ CREATE TABLE documents (
   type TEXT NOT NULL CHECK (type IN (
     'Histórico Escolar',
     'Atestado de Matrícula',
+    'Atestado de Transferência',
     'Atestado de Pagamento',
     'Atestado de Quitação de Débito',
     'Atestado de Frequência'

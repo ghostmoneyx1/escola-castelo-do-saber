@@ -46,3 +46,30 @@ export function filiacaoText(student, { pai, mae, responsavel }) {
   }
   return "";
 }
+
+// "do Ensino Fundamental I" / "da Educação Infantil" — concorda com o nível.
+export function levelText(level) {
+  if (!level) return "";
+  return `${level === "Educação Infantil" ? "da" : "do"} ${level}`;
+}
+
+// Etapa seguinte à turma atual, para o atestado de transferência.
+// "Grupo 04" → Grupo 05 (Infantil); "Grupo 05" → 1º Ano (Fund. I);
+// "4º Ano" → 5º Ano (Fund. I); "5º Ano" → 6º Ano (Fund. II).
+export function nextStage(className) {
+  const grupo = (className || "").match(/grupo\s*0?(\d)/i);
+  if (grupo) {
+    const n = Number(grupo[1]);
+    if (n < 5) return { grade: `Grupo 0${n + 1}`, level: "Educação Infantil" };
+    return { grade: "1º Ano", level: "Ensino Fundamental I" };
+  }
+
+  const ano = (className || "").match(/(\d)\s*[ºo°]/);
+  if (ano) {
+    const n = Number(ano[1]);
+    if (n >= 1 && n < 5) return { grade: `${n + 1}º Ano`, level: "Ensino Fundamental I" };
+    if (n === 5) return { grade: "6º Ano", level: "Ensino Fundamental II" };
+  }
+
+  return null;
+}

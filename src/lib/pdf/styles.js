@@ -2,6 +2,12 @@ import { StyleSheet, Font } from "@react-pdf/renderer";
 
 // No need to register built-in fonts like Helvetica
 
+// A hifenização padrão do react-pdf é para inglês e quebra palavras em português
+// no meio ("con-cluiu"). Desliga: a palavra inteira vai para a linha seguinte.
+// Fronteiras entre runs (nome em negrito + vírgula) ainda viram ponto de hífen;
+// por isso os parágrafos dos atestados usam hyphenationPenalty alto.
+Font.registerHyphenationCallback((word) => [word]);
+
 export const colors = {
   primary: "#1a3a6b",
   secondary: "#d4a017",
@@ -30,12 +36,12 @@ export const baseStyles = StyleSheet.create({
     paddingBottom: 12,
   },
   schoolName: {
-    fontSize: 16,
+    fontSize: 13,
     fontFamily: "Helvetica-Bold",
     color: colors.primary,
     textAlign: "center",
     textTransform: "uppercase",
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   schoolSubtitle: {
     fontSize: 8,

@@ -1,5 +1,7 @@
 export const APP_NAME = "EscolarApp";
 export const SCHOOL_NAME = "Escola Castelo do Saber";
+// Razão social — obrigatória nos documentos oficiais (histórico, atestados).
+export const SCHOOL_LEGAL_NAME = "Instituto de Educação e Cidadania Castelo do Saber";
 
 export const SHIFTS = ["Matutino", "Vespertino", "Integral"];
 
@@ -31,6 +33,7 @@ export const PAYMENT_STATUSES = ["Pago", "Pendente", "Atrasado"];
 export const DOCUMENT_TYPES = [
   "Histórico Escolar",
   "Atestado de Matrícula",
+  "Atestado de Transferência",
   "Atestado de Pagamento",
   "Atestado de Quitação de Débito",
   "Atestado de Frequência",
