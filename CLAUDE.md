@@ -114,6 +114,12 @@ one student's `?a=` link. `/dashboard/ferramentas` lists the public URL and the 
 - `src/components/ui/*` — shadcn/ui primitives (jsx). Edit cautiously; many pages depend on these.
 - `src/components/layout/*` — `sidebar.js`, `topbar.js`, `sidebar-context.js`. The sidebar is **dark slate (`#0f172a`)** with gold accent — see DESIGN_SYSTEM.md.
 - `src/components/shared/*` — `page-header.js`, `empty-state.js`, `status-badge.js`. Reuse these instead of recreating headers/empty states per page.
+- **Busca dentro de um `Select`.** Passe `<SelectSearch>` pela prop `header` do
+  `SelectContent` — nunca coloque um `<Input>` entre os `SelectItem`. O `List` do
+  Base UI é uma composite que trata typeahead e setas, então um input ali dentro
+  recebe as teclas como navegação e a lista pula em vez de filtrar. Com `header`
+  o campo fica fora da `List` e o popup passa a ancorar pela borda
+  (`alignItemWithTrigger` desligado), senão o cabeçalho sai da tela.
 
 ### PDFs
 
