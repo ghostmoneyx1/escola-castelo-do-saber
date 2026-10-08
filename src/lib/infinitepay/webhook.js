@@ -30,11 +30,16 @@ export async function processarWebhook({ corpo, supabase, checar, agora = new Da
       ...extra,
     });
     if (error) console.error("payment_events insert:", error.message);
+    return !error;
   }
 
+  // Sem o log não há rastro do evento. Banco fora (ex.: Supabase acordando
+  // depois de pausa) responde 400 pra InfinitePay reenviar mais tarde.
   const encerrar = async (resultado, extra) => {
-    await registrar(resultado, extra);
-    return { status: 200, resultado };
+    const registrado = await registrar(resultado, extra);
+    return registrado
+      ? { status: 200, resultado }
+      : { status: 400, resultado: "erro_banco" };
   };
 
   if (orderNsu?.startsWith("teste-")) return encerrar("teste_recebido");
@@ -93,6 +98,7 @@ export async function processarWebhook({ corpo, supabase, checar, agora = new Da
     return { status: 400, resultado: "erro_banco" };
   }
 
+  // Parcela já baixada: mesmo sem log, não pede reenvio (viraria "duplicado").
   await registrar("pago", { installment_id: parcela.id, verified: true });
   return { status: 200, resultado: "pago" };
 }
