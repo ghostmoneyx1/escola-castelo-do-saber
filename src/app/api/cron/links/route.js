@@ -45,6 +45,8 @@ export async function GET(req) {
   const inicio = Date.now();
   const falhas = [];
   let gerados = 0;
+  let loteAnterior = "";
+  let listagemRepetida = false;
 
   try {
     while (Date.now() - inicio < ORCAMENTO_MS) {
@@ -55,6 +57,15 @@ export async function GET(req) {
       });
       if (!parcelas.length) break;
 
+      // Se a listagem devolve o mesmo lote de novo, a atualização não está
+      // pegando (ou a leitura veio de cache). Parar evita gerar link em loop.
+      const assinatura = parcelas.map(p => p.id).join(",");
+      if (assinatura === loteAnterior) {
+        listagemRepetida = true;
+        break;
+      }
+      loteAnterior = assinatura;
+
       const r = await gerarLinksParaParcelas({ supabase, parcelas, baseUrl });
       gerados += r.gerados;
       falhas.push(...r.falhas);
@@ -63,8 +74,9 @@ export async function GET(req) {
 
     const restantes = await contarParcelasSemLinkApi(supabase, ano);
     if (falhas.length) console.error("cron/links: falhas", falhas);
+    if (listagemRepetida) console.error("cron/links: listagem repetida, parado por segurança");
 
-    return NextResponse.json({ ano, gerados, falhas: falhas.length, restantes });
+    return NextResponse.json({ ano, gerados, falhas: falhas.length, restantes, listagemRepetida });
   } catch (e) {
     console.error("cron/links:", e);
     return NextResponse.json({ error: e.message, gerados }, { status: 500 });
