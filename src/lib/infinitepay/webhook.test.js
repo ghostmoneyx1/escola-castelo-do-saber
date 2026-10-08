@@ -4,7 +4,7 @@ import { processarWebhook } from "./webhook";
 const PARCELA_ID = "8b1c8e5e-0000-4000-8000-000000000001";
 
 /** Supabase de mentira: só o que o webhook usa. */
-function fakeSupabase({ parcela = null, erroBusca = null, erroUpdate = null } = {}) {
+function fakeSupabase({ parcela = null, erroBusca = null, erroUpdate = null, erroInsert = null } = {}) {
   const inserts = [];
   const updates = [];
   return {
@@ -19,7 +19,7 @@ function fakeSupabase({ parcela = null, erroBusca = null, erroUpdate = null } = 
         }),
         insert: async row => {
           inserts.push({ table, row });
-          return { error: null };
+          return { error: erroInsert };
         },
         update: row => ({
           eq: () => ({
@@ -56,6 +56,12 @@ describe("webhook da InfinitePay", () => {
     expect(r).toEqual({ status: 200, resultado: "teste_recebido" });
     expect(supabase.inserts[0].row.result).toBe("teste_recebido");
     expect(supabase.updates).toHaveLength(0);
+  });
+
+  it("pede retry (400) quando nem o log consegue gravar", async () => {
+    const supabase = fakeSupabase({ erroInsert: { message: "connection refused" } });
+    const r = await processarWebhook({ corpo: { order_nsu: "teste-1" }, supabase, checar: vi.fn() });
+    expect(r).toEqual({ status: 400, resultado: "erro_banco" });
   });
 
   it("ignora order_nsu que não é parcela", async () => {
