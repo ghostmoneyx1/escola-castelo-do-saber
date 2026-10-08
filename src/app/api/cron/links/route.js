@@ -47,6 +47,7 @@ export async function GET(req) {
   let gerados = 0;
   let loteAnterior = "";
   let listagemRepetida = false;
+  let limiteAtingido = false;
 
   try {
     while (Date.now() - inicio < ORCAMENTO_MS) {
@@ -69,14 +70,19 @@ export async function GET(req) {
       const r = await gerarLinksParaParcelas({ supabase, parcelas, baseUrl });
       gerados += r.gerados;
       falhas.push(...r.falhas);
+      if (r.limiteAtingido) {
+        limiteAtingido = true;
+        break;
+      }
       if (r.gerados === 0) break;
     }
 
     const restantes = await contarParcelasSemLinkApi(supabase, ano);
     if (falhas.length) console.error("cron/links: falhas", falhas);
     if (listagemRepetida) console.error("cron/links: listagem repetida, parado por segurança");
+    if (limiteAtingido) console.warn("cron/links: InfinitePay respondeu 429, resto fica pra próxima rodada");
 
-    return NextResponse.json({ ano, gerados, falhas: falhas.length, restantes, listagemRepetida });
+    return NextResponse.json({ ano, gerados, falhas: falhas.length, restantes, listagemRepetida, limiteAtingido });
   } catch (e) {
     console.error("cron/links:", e);
     return NextResponse.json({ error: e.message, gerados }, { status: 500 });

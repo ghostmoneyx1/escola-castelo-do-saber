@@ -46,7 +46,7 @@ describe("geração de links", () => {
       supabase, parcelas: [parcela], baseUrl: "https://escola.test", criar,
     });
 
-    expect(r).toEqual({ gerados: 1, falhas: [] });
+    expect(r).toEqual({ gerados: 1, falhas: [], limiteAtingido: false });
     const chamada = criar.mock.calls[0][0];
     expect(chamada).toMatchObject({
       orderNsu: parcela.id,
@@ -86,6 +86,16 @@ describe("geração de links", () => {
 
     expect(r.gerados).toBe(1);
     expect(r.falhas).toEqual([{ id: parcela.id, erro: "InfinitePay fora" }]);
+  });
+
+  it("para no 429 e devolve limiteAtingido sem contar como falha", async () => {
+    const supabase = fakeSupabase();
+    const erro429 = Object.assign(new Error("InfinitePay não devolveu o link (HTTP 429)"), { status: 429 });
+    const criar = vi.fn().mockRejectedValue(erro429);
+    const r = await gerarLinksParaParcelas({
+      supabase, parcelas: [parcela], baseUrl: "https://escola.test", criar,
+    });
+    expect(r).toEqual({ gerados: 0, falhas: [], limiteAtingido: true });
   });
 
   it("exige o token do webhook", async () => {

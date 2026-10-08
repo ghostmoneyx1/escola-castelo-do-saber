@@ -68,7 +68,9 @@ export async function criarLink({
 
   const { ok, status, json } = await post("/links", body);
   if (!ok || !json?.url) {
-    throw new Error(`InfinitePay não devolveu o link (HTTP ${status})`);
+    const erro = new Error(`InfinitePay não devolveu o link (HTTP ${status})`);
+    erro.status = status;
+    throw erro;
   }
   return { url: json.url };
 }

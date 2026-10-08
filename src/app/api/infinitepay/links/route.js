@@ -57,13 +57,16 @@ export async function POST(req) {
     const parcelas = await listarParcelasParaLink(supabase, {
       ano, contractId, installmentIds, limite, somenteSemLink,
     });
-    const { gerados, falhas } = await gerarLinksParaParcelas({
+    const { gerados, falhas, limiteAtingido } = await gerarLinksParaParcelas({
       supabase, parcelas, baseUrl: baseUrlPublica(req),
     });
     const restantes =
       !contractId && !installmentIds ? await contarParcelasSemLinkApi(supabase, ano) : 0;
+    if (limiteAtingido) {
+      falhas.push({ id: null, erro: "InfinitePay limitou as requisições; o cron diário termina o resto" });
+    }
 
-    return NextResponse.json({ gerados, falhas, restantes });
+    return NextResponse.json({ gerados, falhas, restantes, limiteAtingido });
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
