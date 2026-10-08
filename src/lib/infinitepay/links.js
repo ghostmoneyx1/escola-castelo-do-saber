@@ -4,7 +4,11 @@ import {
 } from "@/lib/mensalidades/parcelas";
 import { MONTHS } from "@/lib/constants";
 
-const LOTE_PARALELO = 5;
+const LOTE_PARALELO = 3;
+const PAUSA_ENTRE_LOTES_MS = 400;
+const HTTP_RATE_LIMIT = 429;
+
+const dormir = ms => new Promise(r => setTimeout(r, ms));
 
 /**
  * "Sem link da API": parcela sem link nenhum ou com link colado da planilha.
@@ -59,8 +63,9 @@ export async function listarParcelasParaLink(supabase, {
 } = {}) {
   let consulta = supabase
     .from("installments")
-    .select("id, month, year, amount, student_id, payment_link, students(id, name)")
+    .select("id, month, year, amount, student_id, payment_link, students(id, name), contracts!inner(status)")
     .neq("status", "Pago")
+    .eq("contracts.status", "Aberto")
     .order("year")
     .order("month")
     .limit(limite);
@@ -79,9 +84,10 @@ export async function listarParcelasParaLink(supabase, {
 export async function contarParcelasSemLinkApi(supabase, ano) {
   const { count, error } = await supabase
     .from("installments")
-    .select("id", { count: "exact", head: true })
+    .select("id, contracts!inner(status)", { count: "exact", head: true })
     .eq("year", ano)
     .neq("status", "Pago")
+    .eq("contracts.status", "Aberto")
     .or(FILTRO_SEM_LINK_API);
   if (error) throw new Error(error.message);
   return count ?? 0;
@@ -90,6 +96,8 @@ export async function contarParcelasSemLinkApi(supabase, ano) {
 /**
  * Cria o link de cada parcela na InfinitePay e grava na parcela.
  * `order_nsu` = id da parcela: é assim que o webhook diz qual parcela pagou.
+ * No primeiro 429 (limite da InfinitePay) para o lote e devolve
+ * `limiteAtingido`: o resto fica pra próxima rodada do cron.
  */
 export async function gerarLinksParaParcelas({ supabase, parcelas, baseUrl, criar = criarLink }) {
   const hook = webhookUrl(baseUrl);
@@ -98,6 +106,7 @@ export async function gerarLinksParaParcelas({ supabase, parcelas, baseUrl, cria
   const vinculos = await carregarVinculos(supabase, [...new Set(parcelas.map(p => p.student_id))]);
   const falhas = [];
   let gerados = 0;
+  let limiteAtingido = false;
 
   async function gerar(p) {
     const descricao = `Mensalidade ${MONTHS[p.month - 1]}/${p.year} - ${p.students?.name || ""}`;
@@ -120,14 +129,19 @@ export async function gerarLinksParaParcelas({ supabase, parcelas, baseUrl, cria
     if (error) throw new Error(error.message);
   }
 
-  for (let i = 0; i < parcelas.length; i += LOTE_PARALELO) {
+  for (let i = 0; i < parcelas.length && !limiteAtingido; i += LOTE_PARALELO) {
+    if (i > 0) await dormir(PAUSA_ENTRE_LOTES_MS);
     const lote = parcelas.slice(i, i + LOTE_PARALELO);
     const resultados = await Promise.allSettled(lote.map(gerar));
     resultados.forEach((r, j) => {
-      if (r.status === "fulfilled") gerados++;
+      if (r.status === "fulfilled") {
+        gerados++;
+        return;
+      }
+      if (r.reason?.status === HTTP_RATE_LIMIT) limiteAtingido = true;
       else falhas.push({ id: lote[j].id, erro: r.reason?.message || "falha" });
     });
   }
 
-  return { gerados, falhas };
+  return { gerados, falhas, limiteAtingido };
 }
