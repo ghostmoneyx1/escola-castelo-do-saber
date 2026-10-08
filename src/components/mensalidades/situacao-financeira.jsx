@@ -14,7 +14,6 @@ function fmt(v) {
 
 const SITUACAO_STYLE = {
   "Em atraso": "bg-red-50 text-red-700 border-red-200",
-  "Em aberto": "bg-blue-50 text-blue-700 border-blue-200",
   "A vencer": "bg-amber-50 text-amber-600 border-amber-200",
 };
 
@@ -30,12 +29,8 @@ function Moldura({ children }) {
   );
 }
 
-/**
- * Cruza o aluno do Supabase com a planilha de cobrança e mostra o que ele deve,
- * sem sair da ficha. Quando os nomes não batem, avisa em vez de fingir que
- * está tudo em dia.
- */
-export function SituacaoFinanceira({ nome }) {
+/** O que o aluno deve no contrato do ano, sem sair da ficha. */
+export function SituacaoFinanceira({ studentId }) {
   const [dados, setDados] = useState(null);
   const [erro, setErro] = useState("");
   const [copiado, setCopiado] = useState(false);
@@ -44,21 +39,21 @@ export function SituacaoFinanceira({ nome }) {
   useEffect(() => setOrigem(window.location.origin), []);
 
   useEffect(() => {
-    if (!nome) return;
+    if (!studentId) return;
     let ativo = true;
     (async () => {
       try {
-        const res = await fetch(`/api/mensalidades/aluno?nome=${encodeURIComponent(nome)}`);
+        const res = await fetch(`/api/mensalidades/aluno?id=${encodeURIComponent(studentId)}`);
         const json = await res.json();
         if (!ativo) return;
-        if (!res.ok) setErro(json.error || "Não foi possível ler a planilha.");
+        if (!res.ok) setErro(json.error || "Não foi possível carregar a situação financeira.");
         else setDados(json);
       } catch {
-        if (ativo) setErro("Não foi possível ler a planilha.");
+        if (ativo) setErro("Não foi possível carregar a situação financeira.");
       }
     })();
     return () => { ativo = false; };
-  }, [nome]);
+  }, [studentId]);
 
   if (erro) {
     return (
@@ -73,7 +68,7 @@ export function SituacaoFinanceira({ nome }) {
       <Moldura>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Consultando a planilha de cobrança...
+          Carregando parcelas...
         </div>
       </Moldura>
     );
@@ -85,28 +80,13 @@ export function SituacaoFinanceira({ nome }) {
         <div className="flex items-start gap-2.5">
           <AlertTriangle className="h-[18px] w-[18px] text-amber-600 shrink-0 mt-0.5" />
           <div className="text-sm">
-            <p className="font-medium text-foreground">
-              {dados.situacao === "ambiguo"
-                ? "Mais de um nome parecido na planilha"
-                : "Este aluno não foi encontrado na planilha de cobrança"}
+            <p className="font-medium text-foreground">Sem contrato aberto este ano</p>
+            <p className="text-muted-foreground mt-1">
+              Crie o contrato pra gerar as parcelas e os links de pagamento.
             </p>
-            {dados.sugestoes.length > 0 ? (
-              <>
-                <p className="text-muted-foreground mt-1">Talvez seja um destes:</p>
-                <ul className="mt-1.5 space-y-0.5">
-                  {dados.sugestoes.map(s => (
-                    <li key={s} className="text-muted-foreground">• {s}</li>
-                  ))}
-                </ul>
-                <p className="text-muted-foreground mt-2">
-                  Padronize o nome na planilha para o vínculo passar a ser automático.
-                </p>
-              </>
-            ) : (
-              <p className="text-muted-foreground mt-1">
-                Só os alunos da planilha de cobrança aparecem aqui.
-              </p>
-            )}
+            <Button asChild size="sm" variant="outline" className="mt-3">
+              <Link href="/dashboard/contratos/novo">Criar contrato</Link>
+            </Button>
           </div>
         </div>
       </Moldura>
@@ -125,12 +105,6 @@ export function SituacaoFinanceira({ nome }) {
 
   return (
     <Moldura>
-      {dados.situacao === "aproximado" && (
-        <p className="text-xs text-muted-foreground mb-3">
-          Vinculado por aproximação a <span className="font-medium">{a.aluno}</span> na planilha.
-        </p>
-      )}
-
       <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 mb-4">
         <div>
           <p className="text-xs text-muted-foreground font-medium">Mensalidade</p>
@@ -152,6 +126,12 @@ export function SituacaoFinanceira({ nome }) {
             </p>
           </div>
         )}
+        {a.telefoneSuspeito && a.telefone && (
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Telefone</p>
+            <p className="text-sm font-semibold text-amber-600">sem o 9 — conferir</p>
+          </div>
+        )}
       </div>
 
       {a.pendentes.length === 0 ? (
@@ -163,7 +143,7 @@ export function SituacaoFinanceira({ nome }) {
         <div className="flex flex-col gap-1.5">
           {a.pendentes.map(p => (
             <div
-              key={p.mes}
+              key={p.id}
               className="flex items-center justify-between gap-3 border border-border rounded-lg px-3 py-2"
             >
               <div className="flex items-center gap-2 min-w-0">

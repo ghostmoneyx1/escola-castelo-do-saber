@@ -59,55 +59,59 @@ src/app/
     chamada/[classId]/     # GET roster for class
     chamada/submit/        # POST attendance batch
     mensalidades/consulta/ # POST {nome, tel} → pending months + payment links
+    infinitepay/links/     # POST gera links de pagamento (auth); GET ?teste=1 link de R$1
+    infinitepay/webhook/   # POST notificação da InfinitePay (token na query + payment_check)
     relatorio/gerar-token/ # mints opaque token for parent access
     relatorio/submit/      # save quarterly report
 ```
 
 The **token-gated public route** (`/relatorio/[token]` + `/api/relatorio/gerar-token`) is the only non-authenticated surface besides `/login` and `/mensalidades`. Tokens live in the `report_tokens` table. Any change here is a security-sensitive change — preserve token entropy, revocation, and expiry semantics.
 
-### Consulta de Mensalidades (`/mensalidades`)
+### Cobrança, mensalidades e InfinitePay
 
-Public tool the school shares with guardians. Guardian types the child's name +
-the last 4 digits of the responsible party's phone, and sees the open months with
-an InfinitePay payment link per month.
+A fonte de verdade das mensalidades é o banco: `contracts` (um por aluno/ano,
+`monthly_amount`, `due_day`) e `installments` (12 parcelas, `status` só
+`Pago`/`A vencer`; "atrasada" é calculada pelo `due_date`). A planilha de
+cobrança do Google foi importada uma vez (`importacao-cobranca-2026.sql`) e
+não é mais lida.
 
-**Its data does not live in Supabase.** `src/lib/mensalidades/sheet.js` reads the
-school's "SISTEMA DE COBRANÇA" Google Sheet live, via its *Publish to web → CSV*
-URL (`MENSALIDADES_SHEET_CSV_URL`, server-only), with a 60s in-process cache. The
-sheet stays the source of truth — the secretariat keeps editing it as before.
+**Links de pagamento.** Cada parcela em aberto ganha um link do Checkout
+Integrado da InfinitePay (`src/lib/infinitepay/client.js`). A API não tem
+token: identifica a conta pelo `handle` (`INFINITEPAY_HANDLE`, a InfiniteTag
+sem `$`). O `order_nsu` do link é o **id da parcela** — é assim que o webhook
+diz qual parcela foi paga. Links nascem em `contratos/novo` (logo após as
+parcelas), no botão "Gerar links" do contrato e no painel de cobrança em
+lotes de 40 (`POST /api/infinitepay/links`). "Sem link" ali significa sem
+link **da API**: link colado da planilha (`payment_link_source = manual`) paga,
+mas não chama o webhook, então entra na fila e é substituído. `GET /api/infinitepay/links`
+cria um link de R$ 1 só pra testar o caminho até o webhook.
 
-Sheet layout the parser expects (header row auto-detected by the `ALUNO` column):
-`ALUNO | RESPONSÁVEL | TELEFONE | SÉRIE | VALOR | JANEIRO … DEZEMBRO`. Each month
-cell is `PAGO` (settled, hidden), a `https://…` payment link (open), `DEVE`
-(overdue), `À VENCER` (upcoming, no link yet), or empty (never charged — skipped).
+**Webhook** (`/api/infinitepay/webhook?t=<INFINITEPAY_WEBHOOK_TOKEN>`): a
+InfinitePay não assina a notificação, então (1) a URL carrega um token nosso
+e (2) a parcela só vira `Pago` depois de `payment_check` confirmar `paid` e
+valor ≥ parcela. Tudo que chega vira linha em `payment_events`, inclusive o
+ignorado — é o rastro quando "paguei e não baixou". Responder 400 faz a
+InfinitePay reenviar; 200 encerra. Lógica em `src/lib/infinitepay/webhook.js`
+(testada com Supabase fake). Usa `createAdminClient()` porque não há sessão.
+`APP_URL` define a base do webhook/redirect; sem ela, em preview da Vercel o
+link apontaria pra URL protegida.
 
-`/api/mensalidades/consulta` is rate-limited (20 hits / 5 min per IP) because it is
-unauthenticated and returns children's names. It accepts either `{nome, tel}` (the
-guardian types) or `{codigo}` (direct link the school sends ready-made).
+**Consulta pública (`/mensalidades`).** O responsável digita nome da criança +
+4 últimos dígitos do telefone de qualquer responsável vinculado, ou abre o
+link direto `/mensalidades?a=<codigo>`. `codigo` = 12 hex de
+`HMAC-SHA256(MENSALIDADES_LINK_SECRET, student.id)`. **Rotar o segredo
+invalida todo link já enviado.** `/api/mensalidades/consulta` é rate-limited
+(20 hits / 5 min por IP), lê com service role e devolve só `paraResponsavel`
+(sem telefone, código ou ids). As consultas vivem em
+`src/lib/mensalidades/consultas.js` e recebem o client do Supabase de quem
+chama; os helpers puros (situação, WhatsApp, código) em `parcelas.js`.
 
-**Direct link per student.** Each row gets a stable 12-hex `codigo` =
-`HMAC-SHA256(MENSALIDADES_LINK_SECRET, normalizedName|digitsOnlyPhone)`, so
-`/mensalidades?a=<codigo>` opens already loaded. HMAC (not a plain hash) so the code
-cannot be derived from a name someone already knows. **Rotating
-`MENSALIDADES_LINK_SECRET` invalidates every link already sent** — treat it as
-long-lived. `buscarMensalidades`/`buscarPorCodigo` return a trimmed shape that never
-includes `telefone`, `whatsapp` or `codigo`; only authenticated routes see those.
-
-**Secretariat side.** `/dashboard/cobranca` (Server Component → `obterCobranca()`)
-shows arrears totals, per-student open months, and a one-click **"Cobrar"** that opens
-`wa.me` with the message from `src/lib/mensalidades/whatsapp.js` pre-filled. Phone
-numbers in the sheet come in two shapes — 11 digits (fine) and 10 digits (old format,
-missing the mobile `9`); `normalizarWhatsapp` inserts the `9` and flags the row as
-`telefoneSuspeito` so the page can warn instead of silently messaging a wrong number.
-
-**Student file.** `/dashboard/alunos/[id]` renders
-`<SituacaoFinanceira nome={student.name} />`, which hits `/api/mensalidades/aluno`.
-Supabase and the sheet were typed separately, so `casarAlunoDaPlanilha` matches
-exact → substring → shared-surname suggestions, and the card says which case it hit
-rather than implying "nothing owed" when the match simply failed.
-
-`/api/mensalidades/qr` returns an SVG QR (authenticated) for the general link or for
-one student's `?a=` link. `/dashboard/ferramentas` lists the public URL and the mural QR.
+**Secretaria.** `/dashboard/cobranca` (Server Component → `obterCobranca()`)
+lista contratos abertos do ano, totais, e o botão **"Cobrar"** que abre
+`wa.me` com a mensagem de `src/lib/mensalidades/whatsapp.js`. Telefone de
+10 dígitos ganha o `9` e a flag `telefoneSuspeito`. A ficha do aluno renderiza
+`<SituacaoFinanceira studentId={...} />` (`/api/mensalidades/aluno?id=`).
+Dinheiro em espécie continua sendo baixado à mão no Financeiro/contrato.
 
 ### Components
 
@@ -150,8 +154,10 @@ Required in any environment that runs the app:
 - `NEXT_PUBLIC_SUPABASE_URL` — used by all four Supabase clients
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — used by client/server/middleware clients
 - `SUPABASE_SERVICE_ROLE_KEY` — required only by `src/lib/supabase/admin.js` (token route, rate limiting, anything that bypasses RLS)
-- `MENSALIDADES_SHEET_CSV_URL` — server-only. CSV export URL of the billing Google Sheet, consumed by `/api/mensalidades/consulta`. Without it that route returns 502; the rest of the app is unaffected.
 - `MENSALIDADES_LINK_SECRET` — server-only HMAC key for the per-student direct links. Changing it invalidates every `/mensalidades?a=…` link already handed out.
+- `INFINITEPAY_HANDLE` — InfiniteTag da escola sem `$` (`castelodosaber`). Identifica a conta na API do Checkout; sem ela nenhum link é gerado.
+- `INFINITEPAY_WEBHOOK_TOKEN` — segredo que vai na query string da URL de webhook cadastrada em cada link. Rotar exige regerar os links.
+- `APP_URL` — base pública (`https://…`) usada no `webhook_url`/`redirect_url` dos links. Opcional em produção (cai em `VERCEL_PROJECT_PRODUCTION_URL`).
 
 The middleware degrades gracefully if env vars are missing (lets the request through unauthenticated), so missing env in dev shows as "no auth gate" rather than an explicit error — verify env when auth behaves unexpectedly.
 

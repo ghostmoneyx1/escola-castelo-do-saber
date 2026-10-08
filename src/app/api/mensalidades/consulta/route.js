@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { consultaMensalidadesSchema, parseBody } from "@/lib/validation/schemas";
 import { enforceRateLimit } from "@/lib/rate-limit/check";
-import { buscarMensalidades, buscarPorCodigo } from "@/lib/mensalidades/sheet";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { buscarMensalidades, buscarPorCodigo } from "@/lib/mensalidades/consultas";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Consulta pública do responsável. Não tem sessão, então lê o banco com
+ * service role — e por isso devolve só o recorte de `paraResponsavel`
+ * (sem telefone, código ou ids).
+ */
 export async function POST(req) {
   const limited = await enforceRateLimit(req, {
     bucket: "mensalidades_consulta",
@@ -18,9 +24,10 @@ export async function POST(req) {
   const { nome, tel, codigo } = parsed.data;
 
   try {
+    const supabase = createAdminClient();
     const resultados = codigo
-      ? await buscarPorCodigo(codigo)
-      : await buscarMensalidades(nome, tel);
+      ? await buscarPorCodigo(supabase, codigo)
+      : await buscarMensalidades(supabase, nome, tel);
     return NextResponse.json(
       { encontrado: resultados.length > 0, resultados },
       { headers: { "Cache-Control": "no-store" } }

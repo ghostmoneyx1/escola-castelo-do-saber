@@ -37,6 +37,20 @@ export const consultaMensalidadesSchema = z.union([
   }),
 ]);
 
+// Geração de links InfinitePay: um contrato, uma lista de parcelas, ou
+// "todas sem link do ano" em lotes.
+export const gerarLinksSchema = z
+  .object({
+    contractId: uuid.optional(),
+    installmentIds: z.array(uuid).min(1).max(100).optional(),
+    ano: z.coerce.number().int().min(2020).max(2100).optional(),
+    limite: z.coerce.number().int().min(1).max(60).default(40),
+    somenteSemLink: z.boolean().default(true),
+  })
+  .refine(d => d.contractId || d.installmentIds || d.ano, {
+    message: "Informe contractId, installmentIds ou ano",
+  });
+
 /**
  * Valida body de request usando schema Zod.
  * Retorna { data } ou NextResponse 400 pra dar `return`.

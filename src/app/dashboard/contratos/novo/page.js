@@ -115,6 +115,14 @@ export default function NovoContratoPage() {
       return;
     }
 
+    // Links de pagamento na InfinitePay. Se falhar, o contrato fica salvo e a
+    // página do contrato tem o botão "Gerar links".
+    await fetch("/api/infinitepay/links", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contractId: contract.id }),
+    }).catch(() => {});
+
     router.push(`/dashboard/contratos/${contract.id}`);
   }
 
@@ -126,7 +134,7 @@ export default function NovoContratoPage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <PageHeader title="Novo Contrato" subtitle="Defina o valor e o sistema gera as 12 parcelas automaticamente">
+      <PageHeader title="Novo Contrato" subtitle="Defina o valor e o sistema gera as 12 parcelas e os links de pagamento">
         <Button asChild variant="outline" size="sm">
           <Link href="/dashboard/contratos"><ArrowLeft className="h-4 w-4 mr-2" />Voltar</Link>
         </Button>

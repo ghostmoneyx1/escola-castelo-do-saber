@@ -1,41 +1,30 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
-import { casarAlunoDaPlanilha } from "@/lib/mensalidades/sheet";
+import { situacaoDoAluno } from "@/lib/mensalidades/consultas";
 
 export const dynamic = "force-dynamic";
 
-/** Situação financeira de um aluno do Supabase, buscada na planilha por nome. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Situação financeira de um aluno (contrato aberto do ano corrente). */
 export async function GET(req) {
   const guard = await requireAuth();
   if (guard instanceof NextResponse) return guard;
+  const { supabase } = guard;
 
-  const nome = new URL(req.url).searchParams.get("nome");
-  if (!nome) return NextResponse.json({ error: "Informe o nome" }, { status: 400 });
+  const id = new URL(req.url).searchParams.get("id");
+  if (!id || !UUID_RE.test(id)) {
+    return NextResponse.json({ error: "Informe o id do aluno" }, { status: 400 });
+  }
 
   try {
-    const { situacao, aluno, sugestoes } = await casarAlunoDaPlanilha(nome);
+    const aluno = await situacaoDoAluno(supabase, id);
     return NextResponse.json(
-      {
-        situacao,
-        aluno: aluno && {
-          aluno: aluno.aluno,
-          responsavel: aluno.responsavel,
-          serie: aluno.serie,
-          telefone: aluno.telefone,
-          whatsapp: aluno.whatsapp,
-          telefoneSuspeito: aluno.telefoneSuspeito,
-          codigo: aluno.codigo,
-          valorMensal: aluno.valorMensal,
-          pendentes: aluno.pendentes,
-          total: aluno.total,
-          mesesAtrasados: aluno.mesesAtrasados,
-        },
-        sugestoes: sugestoes.map(s => s.aluno),
-      },
+      { aluno: aluno && { ...aluno, telefones: undefined } },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (e) {
     console.error("mensalidades/aluno:", e);
-    return NextResponse.json({ error: "Planilha indisponível" }, { status: 502 });
+    return NextResponse.json({ error: "Não foi possível carregar a situação financeira" }, { status: 502 });
   }
 }
