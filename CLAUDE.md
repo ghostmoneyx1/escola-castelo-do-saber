@@ -61,6 +61,7 @@ src/app/
     mensalidades/consulta/ # POST {nome, tel} → pending months + payment links
     infinitepay/links/     # POST gera links de pagamento (auth); GET ?teste=1 link de R$1
     infinitepay/webhook/   # POST notificação da InfinitePay (token na query + payment_check)
+    cron/links/            # GET diário (vercel.json, 12:00 UTC) gera link pra parcela sem link da API
     relatorio/gerar-token/ # mints opaque token for parent access
     relatorio/submit/      # save quarterly report
 ```
@@ -83,7 +84,10 @@ diz qual parcela foi paga. Links nascem em `contratos/novo` (logo após as
 parcelas), no botão "Gerar links" do contrato e no painel de cobrança em
 lotes de 40 (`POST /api/infinitepay/links`). "Sem link" ali significa sem
 link **da API**: link colado da planilha (`payment_link_source = manual`) paga,
-mas não chama o webhook, então entra na fila e é substituído. `GET /api/infinitepay/links`
+mas não chama o webhook, então entra na fila e é substituído. Um cron diário
+(`/api/cron/links`, protegido por `CRON_SECRET`, 45 s de orçamento por rodada)
+faz a mesma varredura sem ninguém clicar; a lógica compartilhada está em
+`src/lib/infinitepay/links.js`. `GET /api/infinitepay/links`
 cria um link de R$ 1 só pra testar o caminho até o webhook.
 
 **Webhook** (`/api/infinitepay/webhook?t=<INFINITEPAY_WEBHOOK_TOKEN>`): a
@@ -157,6 +161,7 @@ Required in any environment that runs the app:
 - `MENSALIDADES_LINK_SECRET` — server-only HMAC key for the per-student direct links. Changing it invalidates every `/mensalidades?a=…` link already handed out.
 - `INFINITEPAY_HANDLE` — InfiniteTag da escola sem `$` (`castelodosaber`). Identifica a conta na API do Checkout; sem ela nenhum link é gerado.
 - `INFINITEPAY_WEBHOOK_TOKEN` — segredo que vai na query string da URL de webhook cadastrada em cada link. Rotar exige regerar os links.
+- `CRON_SECRET` — a Vercel manda `Authorization: Bearer <CRON_SECRET>` nas chamadas de cron; sem a variável o `/api/cron/links` responde 401 e nada é gerado automaticamente.
 - `APP_URL` — base pública (`https://…`) usada no `webhook_url`/`redirect_url` dos links. Opcional em produção (cai em `VERCEL_PROJECT_PRODUCTION_URL`).
 
 The middleware degrades gracefully if env vars are missing (lets the request through unauthenticated), so missing env in dev shows as "no auth gate" rather than an explicit error — verify env when auth behaves unexpectedly.
