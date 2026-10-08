@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Search, AlertTriangle, Clock, CheckCircle, MessageCircle, Copy, Check,
-  QrCode, PhoneOff, Wallet,
+  QrCode, PhoneOff, Link2, Loader2,
 } from "lucide-react";
 import { montarMensagemCobranca, linkWhatsapp } from "@/lib/mensalidades/whatsapp";
 
@@ -22,23 +23,26 @@ function fmt(v) {
 
 const SITUACAO_STYLE = {
   "Em atraso": "bg-red-50 text-red-700 border-red-200",
-  "Em aberto": "bg-blue-50 text-blue-700 border-blue-200",
   "A vencer": "bg-amber-50 text-amber-600 border-amber-200",
 };
 
-function SummaryCard({ icon: Icon, label, value, hint, colorClass }) {
+const LOTE = 40;
+const MAX_LOTES = 50;
+
+function SummaryCard({ icon: Icon, label, value, hint, colorClass, children }) {
   return (
     <div className="bg-white border border-border rounded-xl p-5">
       <div className="flex items-center gap-3">
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${colorClass}`}>
           <Icon className="h-[18px] w-[18px]" />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-xs text-muted-foreground font-medium">{label}</p>
           <p className="text-lg font-bold font-heading">{value}</p>
           {hint && <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>}
         </div>
       </div>
+      {children}
     </div>
   );
 }
@@ -102,11 +106,14 @@ function AcoesAluno({ aluno, origem, onQr }) {
   );
 }
 
-export function CobrancaClient({ alunos, resumo }) {
+export function CobrancaClient({ ano, alunos, resumo }) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [origem, setOrigem] = useState("");
   const [search, setSearch] = useState("");
   const [filtro, setFiltro] = useState("Com pendência");
   const [qrAluno, setQrAluno] = useState(null);
+  const [geracao, setGeracao] = useState(null);
 
   useEffect(() => setOrigem(window.location.origin), []);
 
@@ -123,21 +130,58 @@ export function CobrancaClient({ alunos, resumo }) {
         (filtro === "Com pendência" && a.pendentes.length > 0) ||
         (filtro === "Em atraso" && a.mesesAtrasados > 0) ||
         (filtro === "Em dia" && a.pendentes.length === 0) ||
+        (filtro === "Sem link" && a.parcelasSemLinkApi > 0) ||
         (filtro === "Telefone a conferir" && a.telefoneSuspeito);
 
       return casaBusca && casaFiltro;
     });
   }, [alunos, search, filtro]);
 
-  const qrSrc = qrAluno
-    ? `/api/mensalidades/qr?a=${qrAluno.codigo}`
-    : null;
+  /**
+   * Gera os links em lotes: cada chamada cria até LOTE links e diz quantos
+   * ainda faltam. Assim nenhuma request estoura o tempo da Vercel.
+   */
+  async function gerarLinksQueFaltam() {
+    setGeracao({ feitos: 0, restantes: resumo.parcelasSemLinkApi, erro: "", concluido: false });
+    let feitos = 0;
+    let erro = "";
+
+    for (let i = 0; i < MAX_LOTES; i++) {
+      let json;
+      try {
+        const res = await fetch("/api/infinitepay/links", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ano, limite: LOTE }),
+        });
+        json = await res.json();
+        if (!res.ok) {
+          erro = json.error || "Falha ao gerar links.";
+          break;
+        }
+      } catch {
+        erro = "Falha de conexão ao gerar links.";
+        break;
+      }
+
+      feitos += json.gerados;
+      if (json.falhas?.length) erro = `${json.falhas.length} parcela(s) falharam: ${json.falhas[0].erro}`;
+      setGeracao({ feitos, restantes: json.restantes, erro, concluido: false });
+      if (!json.restantes || json.gerados === 0) break;
+    }
+
+    setGeracao(g => ({ ...g, feitos, erro, concluido: true }));
+    startTransition(() => router.refresh());
+  }
+
+  const qrSrc = qrAluno ? `/api/mensalidades/qr?a=${qrAluno.codigo}` : null;
+  const gerando = geracao && !geracao.concluido;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Cobrança"
-        subtitle={`${resumo.totalAlunos} alunos na planilha · atualiza sozinho a cada minuto`}
+        subtitle={`${resumo.totalAlunos} alunos com contrato aberto em ${ano}`}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -147,12 +191,6 @@ export function CobrancaClient({ alunos, resumo }) {
           value={`R$ ${fmt(resumo.totalAtrasado)}`}
           hint={`${resumo.comAtraso} aluno${resumo.comAtraso === 1 ? "" : "s"}`}
           colorClass="bg-red-50 text-red-600"
-        />
-        <SummaryCard
-          icon={Wallet}
-          label="Em aberto (com link)"
-          value={`R$ ${fmt(resumo.totalEmAberto)}`}
-          colorClass="bg-blue-50 text-blue-600"
         />
         <SummaryCard
           icon={Clock}
@@ -167,6 +205,39 @@ export function CobrancaClient({ alunos, resumo }) {
           hint="sem nenhuma pendência"
           colorClass="bg-emerald-50 text-emerald-600"
         />
+        <SummaryCard
+          icon={Link2}
+          label="Parcelas sem link da InfinitePay"
+          value={resumo.parcelasSemLinkApi}
+          hint={
+            resumo.parcelasSemLinkApi === 0
+              ? "todas com baixa automática"
+              : resumo.parcelasSemLink > 0
+                ? `${resumo.parcelasSemLink} sem link nenhum · ${resumo.parcelasSemLinkApi - resumo.parcelasSemLink} com link antigo da planilha`
+                : "link antigo da planilha, sem baixa automática"
+          }
+          colorClass="bg-blue-50 text-blue-600"
+        >
+          {(resumo.parcelasSemLinkApi > 0 || geracao) && (
+            <div className="mt-3">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs gap-1.5 w-full"
+                onClick={gerarLinksQueFaltam}
+                disabled={gerando}
+              >
+                {gerando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                {gerando ? `Gerando... ${geracao.feitos} prontos` : "Gerar links na InfinitePay"}
+              </Button>
+              {geracao?.concluido && (
+                <p className={`text-xs mt-2 ${geracao.erro ? "text-amber-600" : "text-emerald-700"}`}>
+                  {geracao.erro || `${geracao.feitos} link${geracao.feitos === 1 ? "" : "s"} gerado${geracao.feitos === 1 ? "" : "s"}.`}
+                </p>
+              )}
+            </div>
+          )}
+        </SummaryCard>
       </div>
 
       {resumo.semTelefoneConfiavel > 0 && (
@@ -179,7 +250,7 @@ export function CobrancaClient({ alunos, resumo }) {
             </span>{" "}
             <span className="text-muted-foreground">
               O sistema completa automaticamente, mas confira antes de enviar — filtre por
-              &quot;Telefone a conferir&quot;.
+              &quot;Telefone a conferir&quot; e corrija na ficha do aluno.
             </span>
           </div>
         </div>
@@ -201,6 +272,7 @@ export function CobrancaClient({ alunos, resumo }) {
             <SelectItem value="Com pendência">Com pendência</SelectItem>
             <SelectItem value="Em atraso">Em atraso</SelectItem>
             <SelectItem value="Em dia">Em dia</SelectItem>
+            <SelectItem value="Sem link">Sem link</SelectItem>
             <SelectItem value="Telefone a conferir">Telefone a conferir</SelectItem>
             <SelectItem value="Todos">Todos</SelectItem>
           </SelectContent>
@@ -220,8 +292,15 @@ export function CobrancaClient({ alunos, resumo }) {
               </tr>
             </thead>
             <tbody>
+              {filtrados.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                    Nenhum aluno nesse filtro.
+                  </td>
+                </tr>
+              )}
               {filtrados.map(a => (
-                <tr key={a.codigo} className="border-b border-border hover:bg-muted/30 transition-colors align-top">
+                <tr key={a.id} className="border-b border-border hover:bg-muted/30 transition-colors align-top">
                   <td className="px-5 py-3.5">
                     <p className="font-medium text-foreground">{a.aluno}</p>
                     {a.serie && <p className="text-xs text-muted-foreground mt-0.5">{a.serie}</p>}
@@ -229,8 +308,8 @@ export function CobrancaClient({ alunos, resumo }) {
                   <td className="px-5 py-3.5 text-muted-foreground">
                     <p>{a.responsavel || "—"}</p>
                     <p className="text-xs mt-0.5">
-                      {a.telefone}
-                      {a.telefoneSuspeito && (
+                      {a.telefone || "sem telefone"}
+                      {a.telefoneSuspeito && a.telefone && (
                         <span className="ml-1.5 text-amber-600 font-medium">conferir</span>
                       )}
                     </p>
@@ -242,9 +321,9 @@ export function CobrancaClient({ alunos, resumo }) {
                       <div className="flex flex-wrap gap-1">
                         {a.pendentes.map(p => (
                           <span
-                            key={p.mes}
+                            key={p.id}
                             title={`${p.situacao}${p.link ? " · link pronto" : " · sem link"}`}
-                            className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border ${SITUACAO_STYLE[p.situacao]}`}
+                            className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border ${SITUACAO_STYLE[p.situacao]} ${p.link ? "" : "border-dashed opacity-70"}`}
                           >
                             {p.mes.slice(0, 3)}
                           </span>
@@ -263,9 +342,12 @@ export function CobrancaClient({ alunos, resumo }) {
             </tbody>
           </table>
         </div>
-        <div className="px-5 py-3 border-t border-border">
+        <div className="px-5 py-3 border-t border-border flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
             {filtrados.length} de {alunos.length} alunos
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Mês tracejado = parcela ainda sem link de pagamento
           </p>
         </div>
       </div>

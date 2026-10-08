@@ -223,9 +223,9 @@ export default function AlunoDetailPage() {
           </div>
         </div>
 
-        {/* Situação financeira (planilha de cobrança) */}
+        {/* Situação financeira (contrato do ano) */}
         <div className="lg:col-span-2">
-          <SituacaoFinanceira nome={student.name} />
+          <SituacaoFinanceira studentId={student.id} />
         </div>
 
         {/* Gerar Link de Avaliação */}

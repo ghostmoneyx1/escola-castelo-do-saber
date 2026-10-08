@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, Loader2, ThumbsUp, Pencil, Save, CheckCircle, Clock, AlertTriangle, Trash2,
+  Link2, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { MONTHS } from "@/lib/constants";
@@ -46,6 +47,8 @@ export default function ContratoDetailPage() {
   const [editDialog, setEditDialog]   = useState(false);
   const [editInst, setEditInst]       = useState(null);
   const [saving, setSaving]           = useState(false);
+  const [gerandoLinks, setGerandoLinks] = useState(false);
+  const [avisoLinks, setAvisoLinks]   = useState("");
 
   async function load() {
     const supabase = createClient();
@@ -66,6 +69,25 @@ export default function ContratoDetailPage() {
       status:  "Pago",
       paid_at: new Date().toISOString(),
     }).eq("id", inst.id);
+    load();
+  }
+
+  async function gerarLinks() {
+    setGerandoLinks(true);
+    setAvisoLinks("");
+    try {
+      const res = await fetch("/api/infinitepay/links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contractId: id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Falha ao gerar links");
+      if (json.falhas?.length) setAvisoLinks(`${json.falhas.length} parcela(s) ficaram sem link: ${json.falhas[0].erro}`);
+    } catch (e) {
+      setAvisoLinks(e.message);
+    }
+    setGerandoLinks(false);
     load();
   }
 
@@ -118,11 +140,18 @@ export default function ContratoDetailPage() {
   const aVencer   = installments.filter(i => calcStatus(i) === "A vencer").length;
   const totalPago = installments.filter(i => i.status === "Pago").reduce((a, i) => a + Number(i.amount), 0);
   const totalAberto = installments.filter(i => i.status !== "Pago").reduce((a, i) => a + Number(i.amount), 0);
+  const semLink   = installments.filter(i => i.status !== "Pago" && (!i.payment_link || i.payment_link_source === "manual")).length;
 
   return (
     <div className="space-y-6 max-w-2xl">
       <PageHeader title={contract.students?.name} subtitle={`Contrato ${contract.year} — Dia ${contract.due_day} de cada mês`}>
         <div className="flex gap-2 flex-wrap">
+          {semLink > 0 && (
+            <Button variant="outline" size="sm" onClick={gerarLinks} disabled={gerandoLinks}>
+              {gerandoLinks ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Link2 className="h-4 w-4 mr-2" />}
+              Gerar links ({semLink})
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={toggleContractStatus}>
             {contract.status === "Aberto" ? "Fechar Contrato" : "Reabrir Contrato"}
           </Button>
@@ -169,6 +198,10 @@ export default function ContratoDetailPage() {
         </div>
       </div>
 
+      {avisoLinks && (
+        <div className="text-sm text-amber-700 bg-amber-50 rounded-xl px-4 py-3 border border-amber-100">{avisoLinks}</div>
+      )}
+
       {/* Parcelas */}
       <div className="bg-white border border-border rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
@@ -187,7 +220,10 @@ export default function ContratoDetailPage() {
                 {/* Mês */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground">{MONTHS[inst.month - 1]}/{inst.year}</p>
-                  <p className="text-xs text-muted-foreground">Vence: {dueDate}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Vence: {dueDate}
+                    {inst.status === "Pago" && inst.payment_method && ` · via ${inst.payment_method}`}
+                  </p>
                 </div>
 
                 {/* Valor */}
@@ -200,6 +236,21 @@ export default function ContratoDetailPage() {
 
                 {/* Ações */}
                 <div className="flex items-center gap-1 shrink-0">
+                  {inst.payment_link ? (
+                    <a
+                      href={inst.payment_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Abrir link de pagamento"
+                      className="p-1.5 text-muted-foreground hover:text-primary rounded-md hover:bg-muted transition-colors"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  ) : inst.status !== "Pago" ? (
+                    <span title="Sem link de pagamento" className="p-1.5 text-muted-foreground/40">
+                      <Link2 className="h-4 w-4" />
+                    </span>
+                  ) : null}
                   {inst.status !== "Pago" && (
                     <button
                       onClick={() => markAsPaid(inst)}

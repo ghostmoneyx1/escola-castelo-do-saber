@@ -1,6 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { obterCobranca } from "@/lib/mensalidades/sheet";
+import { createClient } from "@/lib/supabase/server";
+import { obterCobranca } from "@/lib/mensalidades/consultas";
 import { CobrancaClient } from "./cobranca-client";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,8 @@ export const dynamic = "force-dynamic";
 export default async function CobrancaPage() {
   let dados;
   try {
-    dados = await obterCobranca();
+    const supabase = await createClient();
+    dados = await obterCobranca(supabase);
   } catch (e) {
     return (
       <div className="space-y-6">
@@ -17,14 +19,14 @@ export default async function CobrancaPage() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-foreground">Não foi possível ler a planilha</p>
+              <p className="font-semibold text-foreground">Não foi possível carregar a cobrança</p>
               <p className="text-sm text-muted-foreground mt-1">{e.message}</p>
               <p className="text-sm text-muted-foreground mt-3">
-                Confira se a planilha continua compartilhada e se a variável
+                Se a mensagem falar em coluna inexistente, falta rodar o script
                 <code className="mx-1 px-1.5 py-0.5 rounded bg-muted text-xs">
-                  MENSALIDADES_SHEET_CSV_URL
+                  atualizacao-2026-10-07-infinitepay.sql
                 </code>
-                está configurada.
+                no SQL Editor do Supabase.
               </p>
             </div>
           </div>
@@ -33,5 +35,5 @@ export default async function CobrancaPage() {
     );
   }
 
-  return <CobrancaClient alunos={dados.alunos} resumo={dados.resumo} />;
+  return <CobrancaClient ano={dados.ano} alunos={dados.alunos} resumo={dados.resumo} />;
 }

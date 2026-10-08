@@ -10,7 +10,7 @@ const FERRAMENTAS = [
     id: "mensalidades",
     nome: "Consulta de Mensalidades",
     descricao:
-      "O responsável digita o nome da criança e os 4 últimos dígitos do telefone, vê os meses em aberto e paga pelo link. Lê a planilha de cobrança ao vivo.",
+      "O responsável digita o nome da criança e os 4 últimos dígitos do telefone, vê os meses em aberto e paga pelo link da InfinitePay. Lê as parcelas do contrato.",
     caminho: "/mensalidades",
     icon: Wallet,
   },
