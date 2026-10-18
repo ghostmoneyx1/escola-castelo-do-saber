@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/pedro/projects/escola-castelo-do-saber-master/.codex/hooks/lint-on-edit.sh'"
+          }
+        ]
+      }
+    ]
+  }
+}
