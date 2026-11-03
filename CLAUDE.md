@@ -63,7 +63,7 @@ src/app/
     infinitepay/links/     # POST gera links de pagamento (auth); GET ?teste=1 link de R$1
     infinitepay/webhook/   # POST notificação da InfinitePay (token na query + payment_check)
     cron/links/            # GET diário (vercel.json, 12:00 UTC) gera link pra parcela sem link da API
-    cron/cobranca-whatsapp/ # GET diário (12:15 UTC) avisos D-1/D0/D+3 por WhatsApp via OpenWA
+    cron/cobranca-whatsapp/ # GET rodada de avisos D-1/D0/D+3 (VPS de hora em hora + Vercel 12:15 UTC)
     relatorio/gerar-token/ # mints opaque token for parent access
     relatorio/submit/      # save quarterly report
 ```
@@ -119,10 +119,16 @@ lista contratos abertos do ano, totais, e o botão **"Cobrar"** que abre
 `<SituacaoFinanceira studentId={...} />` (`/api/mensalidades/aluno?id=`).
 Dinheiro em espécie continua sendo baixado à mão no Financeiro/contrato.
 
-**Cobrança automática por WhatsApp** (`/api/cron/cobranca-whatsapp`, 12:15 UTC,
-15 min depois do cron de links). Avisos D-1, D0 e D+3 de cada parcela em
-aberto de contrato Aberto, enviados pelo **OpenWA** (API não oficial,
-risco de ban — por isso chip dedicado e ritmo de 45–62 s entre mensagens).
+**Cobrança automática por WhatsApp** (`/api/cron/cobranca-whatsapp`). Avisos
+D-1, D0 e D+3 de cada parcela em aberto de contrato Aberto, enviados pelo
+**OpenWA** (API não oficial, risco de ban — por isso chip dedicado e envio
+**em rodadas**). A Vercel Hobby só agenda cron 1x/dia (12:15 UTC), então a
+VPS chama a rota de hora em hora, 9h07–17h07 de Salvador (crontab do root,
+`/usr/local/bin/escola-cobranca-rodada.sh`, log em `/var/log/escola-cobranca.log`).
+Cada rodada manda no máximo `WHATSAPP_POR_RODADA` (padrão 6) com 45–62 s entre
+mensagens, respeita o teto `WHATSAPP_POR_DIA` (padrão 30), só envia entre 8h e
+18h e espera a rodada anterior terminar. Quando o teto não dá pra todos, vai
+primeiro D0, depois D+3, por último D-1.
 O OpenWA roda na VPS da Casa da Chita (`/opt/openwa`, sessão própria da
 escola) e é exposto só em `https://wa.escolacastelodosaber.net/api/sessions/*`
 (Traefik do Coolify, `/data/coolify/proxy/dynamic/openwa-escola.yaml`); a
@@ -197,6 +203,7 @@ Required in any environment that runs the app:
 - `CRON_SECRET` — a Vercel manda `Authorization: Bearer <CRON_SECRET>` nas chamadas de cron; sem a variável o `/api/cron/links` responde 401 e nada é gerado automaticamente.
 - `OPENWA_URL` (`https://wa.escolacastelodosaber.net`), `OPENWA_API_KEY` (chave restrita à sessão da escola) e `OPENWA_SESSION_ID` — gateway do WhatsApp. Sem as três, o cron só simula.
 - `WHATSAPP_COBRANCA_ATIVA` — `true` liga o envio de verdade. Qualquer outro valor = simulação.
+- `WHATSAPP_POR_RODADA` / `WHATSAPP_POR_DIA` — ritmo anti-bloqueio (padrão 6 e 30). Subir o teto só com o chip aquecido.
 - `APP_URL` — base pública (`https://…`) usada no `webhook_url`/`redirect_url` dos links. Opcional em produção (cai em `VERCEL_PROJECT_PRODUCTION_URL`).
 
 The middleware degrades gracefully if env vars are missing (lets the request through unauthenticated), so missing env in dev shows as "no auth gate" rather than an explicit error — verify env when auth behaves unexpectedly.
