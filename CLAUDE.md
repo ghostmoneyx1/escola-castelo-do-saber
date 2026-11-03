@@ -117,6 +117,16 @@ lista contratos abertos do ano, totais, e o botão **"Cobrar"** que abre
 `<SituacaoFinanceira studentId={...} />` (`/api/mensalidades/aluno?id=`).
 Dinheiro em espécie continua sendo baixado à mão no Financeiro/contrato.
 
+### Tabelas `flex_*` — pertencem a outro projeto
+
+O banco também hospeda as tabelas `flex_settings`, `flex_capacities`,
+`flex_bookings`, `flex_credits`, `flex_menus`, `flex_term_acceptances` e a
+função `flex_book`. Elas são do app **Meu Turninho** (Jornada Flexível,
+`~/projects/meu-turninho`, repositório separado, mesma cliente), que lê
+`students`/`classes`/`units`/`guardians` daqui. Não estão em
+`supabase/schema.sql` de propósito: o schema delas vive naquele projeto.
+Não as altere nem derrube por aqui.
+
 ### Components
 
 - `src/components/ui/*` — shadcn/ui primitives (jsx). Edit cautiously; many pages depend on these.
