@@ -26,6 +26,25 @@ const SITUACAO_STYLE = {
   "A vencer": "bg-amber-50 text-amber-600 border-amber-200",
 };
 
+const AVISO_STATUS = {
+  enviado: { texto: "enviado", classe: "text-emerald-700" },
+  na_fila: { texto: "na fila", classe: "text-muted-foreground" },
+  falhou: { texto: "falhou", classe: "text-red-700" },
+  pulado: { texto: "não enviado", classe: "text-amber-600" },
+};
+
+function UltimoAviso({ aviso }) {
+  if (!aviso) return null;
+  const st = AVISO_STATUS[aviso.status] || { texto: aviso.status, classe: "text-muted-foreground" };
+  const data = new Date(aviso.em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  return (
+    <p className="text-xs mt-1 text-muted-foreground" title={aviso.erro || undefined}>
+      WhatsApp automático {aviso.estagio} · {data} ·{" "}
+      <span className={`font-medium ${st.classe}`}>{st.texto}</span>
+    </p>
+  );
+}
+
 const LOTE = 40;
 const MAX_LOTES = 50;
 
@@ -313,6 +332,7 @@ export function CobrancaClient({ ano, alunos, resumo }) {
                         <span className="ml-1.5 text-amber-600 font-medium">conferir</span>
                       )}
                     </p>
+                    <UltimoAviso aviso={a.ultimoWhatsapp} />
                   </td>
                   <td className="px-5 py-3.5">
                     {a.pendentes.length === 0 ? (

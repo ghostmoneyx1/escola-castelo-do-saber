@@ -82,8 +82,35 @@ export async function carregarAlunos(supabase, { ano = anoAtual(), studentId, ho
  * Visão da secretaria: todo mundo com contrato + agregados de inadimplência.
  * Inclui telefone e código, por isso só pode ser usada em rota autenticada.
  */
+/** Último aviso automático de WhatsApp de cada aluno (simulação não conta). */
+async function ultimosAvisos(supabase, studentIds) {
+  const porAluno = new Map();
+  if (!studentIds.length) return porAluno;
+
+  const { data, error } = await supabase
+    .from("whatsapp_messages")
+    .select("student_id, stage, status, error, created_at, sent_at")
+    .in("student_id", studentIds)
+    .neq("status", "simulado")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+
+  for (const r of data || []) {
+    if (porAluno.has(r.student_id)) continue;
+    porAluno.set(r.student_id, {
+      estagio: r.stage,
+      status: r.status,
+      erro: r.error,
+      em: r.sent_at || r.created_at,
+    });
+  }
+  return porAluno;
+}
+
 export async function obterCobranca(supabase, { ano = anoAtual() } = {}) {
-  const alunos = (await carregarAlunos(supabase, { ano })).sort(
+  const carregados = await carregarAlunos(supabase, { ano });
+  const avisos = await ultimosAvisos(supabase, carregados.map(a => a.id));
+  const alunos = carregados.map(a => ({ ...a, ultimoWhatsapp: avisos.get(a.id) || null })).sort(
     (a, b) =>
       b.mesesAtrasados - a.mesesAtrasados ||
       (b.total || 0) - (a.total || 0) ||

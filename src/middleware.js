@@ -69,7 +69,8 @@ export const config = {
     // Roda só em rotas HTML autenticáveis.
     // Exclui: /api/* (cada route handler chama requireAuth), /relatorio/[token]
     // (acesso público por token, sem login), /mensalidades (consulta pública do
-    // responsável), /login, /auth/*, assets estáticos.
-    "/((?!api|relatorio|mensalidades|login|auth|_next/static|_next/image|favicon.ico|logo.png|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // responsável), /p/* (link curto do aviso de cobrança), /login, /auth/*,
+    // assets estáticos.
+    "/((?!api|relatorio|mensalidades|p/|login|auth|_next/static|_next/image|favicon.ico|logo.png|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

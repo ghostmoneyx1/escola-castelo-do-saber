@@ -3,6 +3,7 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "crons": [
-    { "path": "/api/cron/links", "schedule": "0 12 * * *" }
+    { "path": "/api/cron/links", "schedule": "0 12 * * *" },
+    { "path": "/api/cron/cobranca-whatsapp", "schedule": "15 12 * * *" }
   ]
 }
