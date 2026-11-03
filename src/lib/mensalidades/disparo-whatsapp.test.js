@@ -186,6 +186,24 @@ describe("disparo do dia", () => {
     expect(sb.linhas.find(l => l.installment_id === "p1")).toMatchObject({ status: "pulado", error: "número sem WhatsApp" });
   });
 
+  it("erro ao conferir um número vira falha só daquele aviso", async () => {
+    consultas.carregarAlunos.mockResolvedValue([
+      aluno({ pendentes: [parcela("p1", "2026-11-10")] }),
+      aluno({ id: "aluno-3", aluno: "Davi", whatsapp: "5571988887777", pendentes: [parcela("p3", "2026-11-10")] }),
+    ]);
+    openwa.statusSessao.mockResolvedValue("ready");
+    openwa.enviarLote.mockResolvedValue({});
+    openwa.resolverChatId.mockImplementation(async (_cfg, n) => {
+      if (n === "5571993363876") throw new Error("OpenWA respondeu HTTP 502");
+      return `${n}@c.us`;
+    });
+    const sb = fakeSupabase();
+    const r = await dispararCobranca({ supabase: sb, cfg, ativo: true, baseUrl, agora });
+    expect(r).toMatchObject({ enfileirados: 1, falhas: 1 });
+    expect(sb.linhas.find(l => l.installment_id === "p1")).toMatchObject({ status: "falhou" });
+    expect(sb.linhas.find(l => l.installment_id === "p3")).toMatchObject({ status: "na_fila" });
+  });
+
   it("sessão caída: registra falha e não manda lote", async () => {
     openwa.statusSessao.mockResolvedValue("qr_ready");
     const sb = fakeSupabase();
@@ -224,6 +242,17 @@ describe("conciliação dos lotes", () => {
     expect(await conciliarLotes(sb, cfg)).toBe(2);
     expect(sb.linhas.map(l => l.status)).toEqual(["enviado", "falhou", "na_fila"]);
     expect(sb.linhas[1].error).toBe("número sem WhatsApp");
+  });
+
+  it("lote que não termina em 24 h fecha como falhou", async () => {
+    const sb = fakeSupabase([
+      { installment_id: "p1", status: "na_fila", batch_id: "b2", batch_index: 0, created_at: "2026-11-09T12:15:00Z" },
+      { installment_id: "p2", status: "na_fila", batch_id: "b2", batch_index: 1, created_at: "2026-11-10T12:00:00Z" },
+    ]);
+    openwa.statusLote.mockResolvedValue({ status: "processing", results: [] });
+    await conciliarLotes(sb, cfg, new Date("2026-11-10T12:30:00Z"));
+    expect(sb.linhas[0]).toMatchObject({ status: "falhou", error: expect.stringContaining("travado") });
+    expect(sb.linhas[1].status).toBe("na_fila");
   });
 
   it("lote sumido do OpenWA fecha como falhou", async () => {

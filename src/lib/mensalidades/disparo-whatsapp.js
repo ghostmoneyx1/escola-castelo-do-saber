@@ -17,6 +17,10 @@ import {
 // Estados que contam como "este aviso já foi tratado".
 const DEFINITIVOS = new Set(["na_fila", "enviado", "pulado"]);
 
+// O lote do dia leva ~40 min; passou disso por um dia inteiro, o OpenWA
+// perdeu o lote (reinício no meio do envio) e ele não vai mais terminar.
+const LOTE_TRAVADO_MS = 24 * 60 * 60 * 1000;
+
 /** Avisos do dia a partir da visão de cobrança dos alunos. Função pura. */
 export function selecionarAvisos(alunos, { hoje, baseUrl }) {
   const avisos = [];
@@ -76,10 +80,10 @@ async function inserir(supabase, linhas) {
  * Atualiza os avisos `na_fila` com o resultado que o OpenWA devolveu.
  * Lote ainda rodando fica pra próxima vez; lote encerrado fecha tudo.
  */
-export async function conciliarLotes(supabase, cfg) {
+export async function conciliarLotes(supabase, cfg, agora = new Date()) {
   const { data, error } = await supabase
     .from("whatsapp_messages")
-    .select("id, batch_id, batch_index")
+    .select("id, batch_id, batch_index, created_at")
     .eq("status", "na_fila");
   if (error) throw new Error(error.message);
 
@@ -109,6 +113,8 @@ export async function conciliarLotes(supabase, cfg) {
         patch = { status: "falhou", error: r.error?.message || r.status };
       } else if (encerrado) {
         patch = { status: "falhou", error: lote.perdido ? "lote não encontrado no OpenWA" : `lote ${lote.status}` };
+      } else if (agora - new Date(linha.created_at) > LOTE_TRAVADO_MS) {
+        patch = { status: "falhou", error: "lote travado no OpenWA (mais de 24 h sem terminar)" };
       }
       if (!patch) continue;
       const { error: erroUpdate } = await supabase.from("whatsapp_messages").update(patch).eq("id", linha.id);
@@ -128,7 +134,7 @@ export async function dispararCobranca({ supabase, cfg, ativo, baseUrl, agora = 
   const enviar = Boolean(ativo && cfg);
   const resumo = { hoje, modo: enviar ? "envio" : "simulacao", conciliados: 0, enfileirados: 0, pulados: 0, simulados: 0 };
 
-  if (enviar) resumo.conciliados = await conciliarLotes(supabase, cfg);
+  if (enviar) resumo.conciliados = await conciliarLotes(supabase, cfg, agora);
 
   const alunos = await carregarAlunos(supabase, { ano: Number(hoje.slice(0, 4)) });
   const candidatos = selecionarAvisos(alunos, { hoje, baseUrl });
@@ -159,15 +165,22 @@ export async function dispararCobranca({ supabase, cfg, ativo, baseUrl, agora = 
     return resumo;
   }
 
+  // Um número que não deu pra conferir não pode derrubar a rodada: o cron só
+  // passa uma vez por dia e os outros avisos do estágio se perderiam.
   const resolvidos = [];
-  const semWhatsapp = [];
+  const descartados = [];
   for (const a of prontos.slice(0, LOTE_MAX)) {
-    const chatId = await resolverChatId(cfg, a.phone);
-    if (chatId) resolvidos.push({ ...a, chatId });
-    else semWhatsapp.push({ ...linha(a), status: "pulado", error: "número sem WhatsApp" });
+    try {
+      const chatId = await resolverChatId(cfg, a.phone);
+      if (chatId) resolvidos.push({ ...a, chatId });
+      else descartados.push({ ...linha(a), status: "pulado", error: "número sem WhatsApp" });
+    } catch (e) {
+      descartados.push({ ...linha(a), status: "falhou", error: `não deu pra conferir o número: ${e.message}` });
+    }
   }
-  await inserir(supabase, semWhatsapp);
-  resumo.pulados += semWhatsapp.length;
+  await inserir(supabase, descartados);
+  resumo.pulados += descartados.filter(d => d.status === "pulado").length;
+  resumo.falhas = descartados.filter(d => d.status === "falhou").length;
 
   const lote = resolvidos;
   resumo.adiados = Math.max(prontos.length - LOTE_MAX, 0);
