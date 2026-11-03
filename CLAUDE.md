@@ -55,6 +55,7 @@ src/app/
   chamada/[classId]/       # attendance entry UI
   relatorio/[token]/       # PUBLIC report viewer — gated by token, not session
   mensalidades/            # PUBLIC tuition lookup for guardians (no session)
+  p/[ref]/                 # PUBLIC link curto do aviso de WhatsApp: /p/<codigo>-<mês> → checkout da parcela (ou consulta)
   api/
     chamada/[classId]/     # GET roster for class
     chamada/submit/        # POST attendance batch
@@ -62,6 +63,7 @@ src/app/
     infinitepay/links/     # POST gera links de pagamento (auth); GET ?teste=1 link de R$1
     infinitepay/webhook/   # POST notificação da InfinitePay (token na query + payment_check)
     cron/links/            # GET diário (vercel.json, 12:00 UTC) gera link pra parcela sem link da API
+    cron/cobranca-whatsapp/ # GET diário (12:15 UTC) avisos D-1/D0/D+3 por WhatsApp via OpenWA
     relatorio/gerar-token/ # mints opaque token for parent access
     relatorio/submit/      # save quarterly report
 ```
@@ -116,6 +118,27 @@ lista contratos abertos do ano, totais, e o botão **"Cobrar"** que abre
 10 dígitos ganha o `9` e a flag `telefoneSuspeito`. A ficha do aluno renderiza
 `<SituacaoFinanceira studentId={...} />` (`/api/mensalidades/aluno?id=`).
 Dinheiro em espécie continua sendo baixado à mão no Financeiro/contrato.
+
+**Cobrança automática por WhatsApp** (`/api/cron/cobranca-whatsapp`, 12:15 UTC,
+15 min depois do cron de links). Avisos D-1, D0 e D+3 de cada parcela em
+aberto de contrato Aberto, enviados pelo **OpenWA** (API não oficial,
+risco de ban — por isso chip dedicado e ritmo de 45–62 s entre mensagens).
+O OpenWA roda na VPS da Casa da Chita (`/opt/openwa`, sessão própria da
+escola) e é exposto só em `https://wa.escolacastelodosaber.net/api/sessions/*`
+(Traefik do Coolify, `/data/coolify/proxy/dynamic/openwa-escola.yaml`); a
+chave da escola é restrita à sessão dela (`allowedSessions`), nunca a master.
+Cada aviso vira linha em `whatsapp_messages` **antes** de ir pro OpenWA; o
+índice único parcial (parcela, estágio) com status `na_fila/enviado/pulado`
+garante no máximo uma vez. `simulado` e `falhou` não contam (rodar de novo
+tenta outra vez). O OpenWA envia o lote em segundo plano; a próxima rodada
+concilia `na_fila` → `enviado/falhou` pela posição no lote. Telefone ausente
+ou sem o 9 vira `pulado`. Sem `WHATSAPP_COBRANCA_ATIVA=true` (ou sem as
+envs do OpenWA) tudo é gravado como `simulado` e nada sai. Lógica em
+`src/lib/mensalidades/disparo-whatsapp.js` (testada) e textos em
+`lembretes.js`; o painel de Cobrança mostra o último aviso de cada aluno.
+A mensagem leva o link curto `/p/<codigo>-<mês>` (o da InfinitePay tem ~470
+caracteres e vira um bloco no WhatsApp); a rota redireciona pro checkout da
+parcela ou, se já paga, pra consulta do aluno. Rate-limited (30 / 5 min por IP).
 
 ### Tabelas `flex_*` — pertencem a outro projeto
 
@@ -172,6 +195,8 @@ Required in any environment that runs the app:
 - `INFINITEPAY_HANDLE` — InfiniteTag da escola sem `$` (`castelodosaber`). Identifica a conta na API do Checkout; sem ela nenhum link é gerado.
 - `INFINITEPAY_WEBHOOK_TOKEN` — segredo que vai na query string da URL de webhook cadastrada em cada link. Rotar exige regerar os links.
 - `CRON_SECRET` — a Vercel manda `Authorization: Bearer <CRON_SECRET>` nas chamadas de cron; sem a variável o `/api/cron/links` responde 401 e nada é gerado automaticamente.
+- `OPENWA_URL` (`https://wa.escolacastelodosaber.net`), `OPENWA_API_KEY` (chave restrita à sessão da escola) e `OPENWA_SESSION_ID` — gateway do WhatsApp. Sem as três, o cron só simula.
+- `WHATSAPP_COBRANCA_ATIVA` — `true` liga o envio de verdade. Qualquer outro valor = simulação.
 - `APP_URL` — base pública (`https://…`) usada no `webhook_url`/`redirect_url` dos links. Opcional em produção (cai em `VERCEL_PROJECT_PRODUCTION_URL`).
 
 The middleware degrades gracefully if env vars are missing (lets the request through unauthenticated), so missing env in dev shows as "no auth gate" rather than an explicit error — verify env when auth behaves unexpectedly.
