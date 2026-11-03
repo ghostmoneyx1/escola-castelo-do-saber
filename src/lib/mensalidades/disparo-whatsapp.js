@@ -17,9 +17,29 @@ import {
 // Estados que contam como "este aviso já foi tratado".
 const DEFINITIVOS = new Set(["na_fila", "enviado", "pulado"]);
 
-// O lote do dia leva ~40 min; passou disso por um dia inteiro, o OpenWA
-// perdeu o lote (reinício no meio do envio) e ele não vai mais terminar.
+// Uma rodada leva poucos minutos; passou um dia inteiro, o OpenWA perdeu o
+// lote (reinício no meio do envio) e ele não vai mais terminar.
 const LOTE_TRAVADO_MS = 24 * 60 * 60 * 1000;
+
+// Ritmo anti-bloqueio. O disparo roda em rodadas curtas espalhadas pelo dia
+// (agendador de hora em hora na VPS + o cron diário da Vercel), nunca um
+// bloco único: poucas mensagens por vez, teto por dia e só em horário comercial.
+export const RITMO_PADRAO = { porRodada: 6, porDia: 30, horaInicio: 8, horaFim: 18 };
+
+// Quando o teto do dia não dá pra todos, quem vence hoje e quem está atrasado
+// vêm antes do lembrete de véspera (que vira o aviso "vence hoje" amanhã).
+const PRIORIDADE = { D0: 0, "D+3": 1, "D-1": 2 };
+
+const FUSO_ESCOLA = "America/Bahia";
+
+function horaNaEscola(agora) {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: FUSO_ESCOLA, hour: "numeric", hourCycle: "h23" }).format(agora));
+}
+
+// Salvador é UTC-3 o ano todo (sem horário de verão).
+function inicioDoDiaUtc(hoje) {
+  return `${hoje}T03:00:00Z`;
+}
 
 /** Avisos do dia a partir da visão de cobrança dos alunos. Função pura. */
 export function selecionarAvisos(alunos, { hoje, baseUrl }) {
@@ -129,12 +149,34 @@ export async function conciliarLotes(supabase, cfg, agora = new Date()) {
  * Rodada do dia. Com `ativo` falso (ou sem OpenWA configurado) nada sai:
  * os avisos ficam gravados como `simulado` pra conferir antes de ligar.
  */
-export async function dispararCobranca({ supabase, cfg, ativo, baseUrl, agora = new Date() }) {
+async function contar(supabase, filtro) {
+  let q = supabase.from("whatsapp_messages").select("id", { count: "exact", head: true });
+  q = filtro(q);
+  const { count, error } = await q;
+  if (error) throw new Error(error.message);
+  return count || 0;
+}
+
+export async function dispararCobranca({
+  supabase, cfg, ativo, baseUrl, agora = new Date(), ritmo = RITMO_PADRAO,
+}) {
   const hoje = hojeNaEscola(agora);
   const enviar = Boolean(ativo && cfg);
   const resumo = { hoje, modo: enviar ? "envio" : "simulacao", conciliados: 0, enfileirados: 0, pulados: 0, simulados: 0 };
 
-  if (enviar) resumo.conciliados = await conciliarLotes(supabase, cfg, agora);
+  if (enviar) {
+    const hora = horaNaEscola(agora);
+    if (hora < ritmo.horaInicio || hora >= ritmo.horaFim) {
+      resumo.parado = `fora do horário de envio (${ritmo.horaInicio}h–${ritmo.horaFim}h)`;
+      return resumo;
+    }
+    resumo.conciliados = await conciliarLotes(supabase, cfg, agora);
+    // Rodada anterior ainda mandando: espera ela acabar, nunca dois lotes juntos.
+    if (await contar(supabase, q => q.eq("status", "na_fila")) > 0) {
+      resumo.parado = "rodada anterior ainda enviando";
+      return resumo;
+    }
+  }
 
   const alunos = await carregarAlunos(supabase, { ano: Number(hoje.slice(0, 4)) });
   const candidatos = selecionarAvisos(alunos, { hoje, baseUrl });
@@ -156,20 +198,31 @@ export async function dispararCobranca({ supabase, cfg, ativo, baseUrl, agora = 
   }
   if (!prontos.length) return resumo;
 
-  // Sessão caída (chip desconectado, QR pendente): registra a falha em vez de
-  // mandar um lote que o OpenWA recusaria — e a secretaria vê no painel.
+  // Sessão caída (chip desconectado, QR pendente): não grava nada e a próxima
+  // rodada tenta de novo — gravar "falhou" a cada hora só encheria o painel.
   const status = await statusSessao(cfg).catch(e => `erro: ${e.message}`);
   if (status !== "ready") {
-    await inserir(supabase, prontos.map(a => ({ ...linha(a), status: "falhou", error: `sessão do WhatsApp: ${status}` })));
     resumo.erro = `Sessão do WhatsApp não está pronta (${status})`;
     return resumo;
   }
 
   // Um número que não deu pra conferir não pode derrubar a rodada: o cron só
   // passa uma vez por dia e os outros avisos do estágio se perderiam.
+  const enviadosHoje = await contar(supabase, q =>
+    q.in("status", ["na_fila", "enviado"]).gte("created_at", inicioDoDiaUtc(hoje)));
+  const vagas = Math.max(Math.min(ritmo.porRodada, ritmo.porDia - enviadosHoje, LOTE_MAX), 0);
+  resumo.restantesHoje = prontos.length;
+  if (!vagas) {
+    resumo.parado = `teto do dia atingido (${ritmo.porDia})`;
+    return resumo;
+  }
+  const daRodada = [...prontos]
+    .sort((x, y) => PRIORIDADE[x.stage] - PRIORIDADE[y.stage])
+    .slice(0, vagas);
+
   const resolvidos = [];
   const descartados = [];
-  for (const a of prontos.slice(0, LOTE_MAX)) {
+  for (const a of daRodada) {
     try {
       const chatId = await resolverChatId(cfg, a.phone);
       if (chatId) resolvidos.push({ ...a, chatId });
@@ -183,7 +236,7 @@ export async function dispararCobranca({ supabase, cfg, ativo, baseUrl, agora = 
   resumo.falhas = descartados.filter(d => d.status === "falhou").length;
 
   const lote = resolvidos;
-  resumo.adiados = Math.max(prontos.length - LOTE_MAX, 0);
+  resumo.restantesHoje = prontos.length - daRodada.length;
   if (!lote.length) return resumo;
   const batchId = `cobranca-${hoje}-${randomUUID().slice(0, 8)}`;
   await inserir(

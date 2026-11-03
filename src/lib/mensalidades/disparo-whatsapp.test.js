@@ -30,19 +30,32 @@ function aluno(extra = {}) {
 
 /** Supabase fake só com o que o disparo usa em whatsapp_messages. */
 function fakeSupabase(existentes = []) {
-  const linhas = existentes.map((r, i) => ({ id: `old-${i}`, ...r }));
+  const linhas = existentes.map((r, i) => ({ id: `old-${i}`, created_at: "2026-11-01T12:00:00Z", ...r }));
   const updates = [];
+
+  // Consulta encadeável (.eq/.in/.gte) que resolve como o PostgREST: data ou count.
+  function consulta({ head }) {
+    const filtros = [];
+    const q = {
+      eq(col, val) { filtros.push(l => l[col] === val); return q; },
+      in(col, vals) { filtros.push(l => vals.includes(l[col])); return q; },
+      gte(col, val) { filtros.push(l => String(l[col]) >= val); return q; },
+      then(resolve) {
+        const data = linhas.filter(l => filtros.every(f => f(l)));
+        return Promise.resolve(head ? { count: data.length, error: null } : { data, error: null }).then(resolve);
+      },
+    };
+    return q;
+  }
+
   return {
     linhas,
     updates,
     from() {
       return {
-        select: () => ({
-          in: async (_c, ids) => ({ data: linhas.filter(l => ids.includes(l.installment_id)), error: null }),
-          eq: async (col, val) => ({ data: linhas.filter(l => l[col] === val), error: null }),
-        }),
+        select: (_cols, opts = {}) => consulta({ head: opts.head }),
         insert: async novas => {
-          novas.forEach((n, i) => linhas.push({ id: `new-${linhas.length + i}`, ...n }));
+          novas.forEach((n, i) => linhas.push({ id: `new-${linhas.length + i}`, created_at: "2026-11-09T12:15:00Z", ...n }));
           return { error: null };
         },
         update: patch => ({
@@ -204,13 +217,83 @@ describe("disparo do dia", () => {
     expect(sb.linhas.find(l => l.installment_id === "p3")).toMatchObject({ status: "na_fila" });
   });
 
-  it("sessão caída: registra falha e não manda lote", async () => {
+  it("sessão caída: não manda nem grava, a próxima rodada tenta de novo", async () => {
     openwa.statusSessao.mockResolvedValue("qr_ready");
     const sb = fakeSupabase();
     const r = await dispararCobranca({ supabase: sb, cfg, ativo: true, baseUrl, agora });
     expect(r.erro).toMatch(/qr_ready/);
     expect(openwa.enviarLote).not.toHaveBeenCalled();
-    expect(sb.linhas.find(l => l.installment_id === "p1").status).toBe("falhou");
+    expect(sb.linhas.find(l => l.installment_id === "p1")).toBeUndefined();
+  });
+
+  it("fora do horário comercial não manda nada", async () => {
+    openwa.statusSessao.mockResolvedValue("ready");
+    const sb = fakeSupabase();
+    // 23:30 UTC = 20:30 em Salvador
+    const r = await dispararCobranca({ supabase: sb, cfg, ativo: true, baseUrl, agora: new Date("2026-11-09T23:30:00Z") });
+    expect(r.parado).toMatch(/fora do horário/);
+    expect(openwa.enviarLote).not.toHaveBeenCalled();
+    expect(sb.linhas).toHaveLength(0);
+  });
+
+  it("rodada anterior ainda enviando: espera", async () => {
+    openwa.statusSessao.mockResolvedValue("ready");
+    openwa.statusLote.mockResolvedValue({ status: "processing", results: [] });
+    const sb = fakeSupabase([{ installment_id: "x", stage: "D0", status: "na_fila", batch_id: "b0", batch_index: 0, created_at: "2026-11-09T12:00:00Z" }]);
+    const r = await dispararCobranca({ supabase: sb, cfg, ativo: true, baseUrl, agora });
+    expect(r.parado).toMatch(/rodada anterior/);
+    expect(openwa.enviarLote).not.toHaveBeenCalled();
+  });
+
+  describe("ritmo", () => {
+    const tres = () => [
+      aluno({ id: "a1", whatsapp: "5571900000001", pendentes: [parcela("vespera", "2026-11-10")] }),
+      aluno({ id: "a2", whatsapp: "5571900000002", pendentes: [parcela("hoje", "2026-11-09")] }),
+      aluno({ id: "a3", whatsapp: "5571900000003", pendentes: [parcela("atraso", "2026-11-06")] }),
+    ];
+
+    beforeEach(() => {
+      openwa.statusSessao.mockResolvedValue("ready");
+      openwa.enviarLote.mockResolvedValue({});
+      consultas.carregarAlunos.mockResolvedValue(tres());
+    });
+
+    it("manda no máximo o tamanho da rodada, priorizando vence hoje e atrasado", async () => {
+      const sb = fakeSupabase();
+      const r = await dispararCobranca({
+        supabase: sb, cfg, ativo: true, baseUrl, agora, ritmo: { porRodada: 2, porDia: 30, horaInicio: 8, horaFim: 18 },
+      });
+      expect(r).toMatchObject({ enfileirados: 2, restantesHoje: 1 });
+      const fila = sb.linhas.filter(l => l.status === "na_fila").map(l => l.stage);
+      expect(fila).toEqual(["D0", "D+3"]);
+    });
+
+    it("a rodada seguinte pega o que sobrou, depois que a anterior terminou", async () => {
+      const sb = fakeSupabase();
+      const ritmo = { porRodada: 2, porDia: 30, horaInicio: 8, horaFim: 18 };
+      await dispararCobranca({ supabase: sb, cfg, ativo: true, baseUrl, agora, ritmo });
+      openwa.statusLote.mockResolvedValue({ status: "completed", results: [{ status: "sent" }, { status: "sent" }] });
+      const r = await dispararCobranca({ supabase: sb, cfg, ativo: true, baseUrl, agora: new Date("2026-11-09T13:07:00Z"), ritmo });
+      expect(r).toMatchObject({ conciliados: 2, enfileirados: 1, restantesHoje: 0 });
+      expect(sb.linhas.find(l => l.installment_id === "vespera").status).toBe("na_fila");
+    });
+
+    it("para no teto do dia", async () => {
+      const sb = fakeSupabase([
+        { installment_id: "z1", stage: "D0", status: "enviado", created_at: "2026-11-09T12:05:00Z" },
+        { installment_id: "z2", stage: "D0", status: "enviado", created_at: "2026-11-09T12:06:00Z" },
+        // de ontem: não conta pro teto de hoje
+        { installment_id: "z3", stage: "D0", status: "enviado", created_at: "2026-11-08T15:00:00Z" },
+      ]);
+      const r = await dispararCobranca({
+        supabase: sb, cfg, ativo: true, baseUrl, agora, ritmo: { porRodada: 6, porDia: 3, horaInicio: 8, horaFim: 18 },
+      });
+      expect(r.enfileirados).toBe(1);
+      const r2 = await dispararCobranca({
+        supabase: sb, cfg, ativo: true, baseUrl, agora, ritmo: { porRodada: 6, porDia: 2, horaInicio: 8, horaFim: 18 },
+      });
+      expect(r2.parado).toMatch(/rodada anterior|teto/);
+    });
   });
 
   it("OpenWA recusa o lote: avisos viram falhou", async () => {
@@ -239,7 +322,7 @@ describe("conciliação dos lotes", () => {
         { status: "failed", error: { message: "número sem WhatsApp" } },
       ],
     });
-    expect(await conciliarLotes(sb, cfg)).toBe(2);
+    expect(await conciliarLotes(sb, cfg, new Date("2026-11-01T12:30:00Z"))).toBe(2);
     expect(sb.linhas.map(l => l.status)).toEqual(["enviado", "falhou", "na_fila"]);
     expect(sb.linhas[1].error).toBe("número sem WhatsApp");
   });
