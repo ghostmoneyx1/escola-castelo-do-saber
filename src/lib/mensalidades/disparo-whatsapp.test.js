@@ -278,6 +278,20 @@ describe("disparo do dia", () => {
       expect(sb.linhas.find(l => l.installment_id === "vespera").status).toBe("na_fila");
     });
 
+    it("no mesmo estágio, quem ainda não recebeu aviso da parcela vai primeiro", async () => {
+      consultas.carregarAlunos.mockResolvedValue([
+        aluno({ id: "a1", whatsapp: "5571900000001", pendentes: [parcela("ja-avisada", "2026-11-09")] }),
+        aluno({ id: "a2", whatsapp: "5571900000002", pendentes: [parcela("nunca-avisada", "2026-11-09")] }),
+      ]);
+      const sb = fakeSupabase([
+        { installment_id: "ja-avisada", stage: "D-1", status: "enviado", created_at: "2026-11-08T12:10:00Z" },
+      ]);
+      await dispararCobranca({
+        supabase: sb, cfg, ativo: true, baseUrl, agora, ritmo: { porRodada: 1, porDia: 30, horaInicio: 8, horaFim: 18 },
+      });
+      expect(sb.linhas.filter(l => l.status === "na_fila").map(l => l.installment_id)).toEqual(["nunca-avisada"]);
+    });
+
     it("para no teto do dia", async () => {
       const sb = fakeSupabase([
         { installment_id: "z1", stage: "D0", status: "enviado", created_at: "2026-11-09T12:05:00Z" },

@@ -27,7 +27,8 @@ const LOTE_TRAVADO_MS = 24 * 60 * 60 * 1000;
 export const RITMO_PADRAO = { porRodada: 6, porDia: 30, horaInicio: 8, horaFim: 18 };
 
 // Quando o teto do dia não dá pra todos, quem vence hoje e quem está atrasado
-// vêm antes do lembrete de véspera (que vira o aviso "vence hoje" amanhã).
+// vêm antes do lembrete de véspera (que vira o aviso "vence hoje" amanhã); no
+// mesmo estágio, quem ainda não recebeu nada daquela parcela vai primeiro.
 const PRIORIDADE = { D0: 0, "D+3": 1, "D-1": 2 };
 
 const FUSO_ESCOLA = "America/Bahia";
@@ -75,19 +76,28 @@ export function selecionarAvisos(alunos, { hoje, baseUrl }) {
   return avisos;
 }
 
-async function jaTratados(supabase, avisos, { incluirSimulados }) {
+/**
+ * `tratados`: parcela|estágio que já não deve sair de novo.
+ * `avisadas`: parcelas que já receberam algum aviso (qualquer estágio) — elas
+ * cedem a vez quando o teto do dia não cobre todo mundo.
+ */
+async function historico(supabase, avisos, { incluirSimulados }) {
   const ids = [...new Set(avisos.map(a => a.installment_id))];
-  if (!ids.length) return new Set();
+  if (!ids.length) return { tratados: new Set(), avisadas: new Set() };
   const { data, error } = await supabase
     .from("whatsapp_messages")
     .select("installment_id, stage, status")
     .in("installment_id", ids);
   if (error) throw new Error(error.message);
-  return new Set(
-    (data || [])
-      .filter(r => DEFINITIVOS.has(r.status) || (incluirSimulados && r.status === "simulado"))
-      .map(r => `${r.installment_id}|${r.stage}`)
-  );
+  const linhas = data || [];
+  return {
+    tratados: new Set(
+      linhas
+        .filter(r => DEFINITIVOS.has(r.status) || (incluirSimulados && r.status === "simulado"))
+        .map(r => `${r.installment_id}|${r.stage}`)
+    ),
+    avisadas: new Set(linhas.filter(r => r.status === "enviado" || r.status === "na_fila").map(r => r.installment_id)),
+  };
 }
 
 async function inserir(supabase, linhas) {
@@ -180,7 +190,7 @@ export async function dispararCobranca({
 
   const alunos = await carregarAlunos(supabase, { ano: Number(hoje.slice(0, 4)) });
   const candidatos = selecionarAvisos(alunos, { hoje, baseUrl });
-  const tratados = await jaTratados(supabase, candidatos, { incluirSimulados: !enviar });
+  const { tratados, avisadas } = await historico(supabase, candidatos, { incluirSimulados: !enviar });
   const avisos = candidatos.filter(a => !tratados.has(`${a.installment_id}|${a.stage}`));
 
   const pulados = avisos.filter(a => a.status === "pulado");
@@ -217,7 +227,9 @@ export async function dispararCobranca({
     return resumo;
   }
   const daRodada = [...prontos]
-    .sort((x, y) => PRIORIDADE[x.stage] - PRIORIDADE[y.stage])
+    .sort((x, y) =>
+      PRIORIDADE[x.stage] - PRIORIDADE[y.stage] ||
+      Number(avisadas.has(x.installment_id)) - Number(avisadas.has(y.installment_id)))
     .slice(0, vagas);
 
   const resolvidos = [];
