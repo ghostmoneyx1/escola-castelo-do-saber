@@ -36,31 +36,35 @@ async function post(caminho, body) {
 
 /**
  * Cria um link de pagamento (Pix ou cartão) e devolve a URL.
- * `orderNsu` é o nosso identificador — usamos o id da parcela, que é o que o
- * webhook devolve depois pra gente saber qual parcela foi paga.
+ * `orderNsu` é o nosso identificador — o id da parcela, ou "grupo-<id>" no
+ * link que junta várias — e é o que o webhook devolve depois.
+ * `itens` ([{ descricao, valorCentavos }]) monta um checkout com várias
+ * linhas; sem ele, sai um item só com `descricao`/`valorCentavos`.
  */
 export async function criarLink({
   orderNsu,
   descricao,
   valorCentavos,
+  itens,
   cliente,
   webhookUrl,
   redirectUrl,
 }) {
-  if (!Number.isInteger(valorCentavos) || valorCentavos <= 0) {
-    throw new Error("Valor inválido para o link de pagamento");
+  const linhas = itens?.length ? itens : [{ descricao, valorCentavos }];
+  for (const l of linhas) {
+    if (!Number.isInteger(l.valorCentavos) || l.valorCentavos <= 0) {
+      throw new Error("Valor inválido para o link de pagamento");
+    }
   }
 
   const body = {
     handle: obterHandle(),
     order_nsu: String(orderNsu),
-    items: [
-      {
-        quantity: 1,
-        price: valorCentavos,
-        description: String(descricao || "Mensalidade").slice(0, DESCRICAO_MAX),
-      },
-    ],
+    items: linhas.map(l => ({
+      quantity: 1,
+      price: l.valorCentavos,
+      description: String(l.descricao || "Mensalidade").slice(0, DESCRICAO_MAX),
+    })),
   };
   if (cliente?.name) body.customer = cliente;
   if (webhookUrl) body.webhook_url = webhookUrl;

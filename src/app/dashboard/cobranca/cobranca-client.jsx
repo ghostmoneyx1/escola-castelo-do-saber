@@ -125,7 +125,7 @@ function AcoesAluno({ aluno, origem, onQr }) {
   );
 }
 
-export function CobrancaClient({ ano, alunos, resumo }) {
+export function CobrancaClient({ ano, alunos, resumo, duplicidades = [] }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [origem, setOrigem] = useState("");
@@ -258,6 +258,29 @@ export function CobrancaClient({ ano, alunos, resumo }) {
           )}
         </SummaryCard>
       </div>
+
+      {duplicidades.length > 0 && (
+        <div className="bg-white border border-border rounded-xl px-5 py-4 flex items-start gap-3">
+          <AlertTriangle className="h-[18px] w-[18px] text-red-600 shrink-0 mt-0.5" />
+          <div className="text-sm min-w-0">
+            <p className="font-medium text-foreground">
+              {duplicidades.length} pagamento{duplicidades.length === 1 ? "" : "s"} em duplicidade para devolver
+            </p>
+            <p className="text-muted-foreground mt-0.5">
+              Mensalidade que já estava paga e foi paga de novo pela InfinitePay (link avulso e &quot;pagar tudo&quot;, ou dinheiro e link).
+            </p>
+            <ul className="mt-2 space-y-1">
+              {duplicidades.map((d) => (
+                <li key={d.id} className="text-foreground">
+                  {d.aluno || "Aluno não identificado"} · mês {d.mes || "?"}
+                  {d.valor != null && ` · R$ ${fmt(d.valor)}`}
+                  <span className="text-muted-foreground"> · {new Date(d.em).toLocaleDateString("pt-BR")}{d.transacao && ` · transação ${d.transacao}`}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {resumo.semTelefoneConfiavel > 0 && (
         <div className="bg-white border border-border rounded-xl px-5 py-4 flex items-start gap-3">

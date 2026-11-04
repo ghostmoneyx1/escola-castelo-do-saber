@@ -34,7 +34,7 @@ export function webhookUrl(base) {
   return token ? `${base}/api/infinitepay/webhook?t=${encodeURIComponent(token)}` : null;
 }
 
-function clienteDoLink(responsavel) {
+export function clienteDoLink(responsavel) {
   if (!responsavel?.name) return undefined;
   const { numero, suspeito } = normalizarWhatsapp(responsavel.phone);
   const cliente = { name: responsavel.name };
