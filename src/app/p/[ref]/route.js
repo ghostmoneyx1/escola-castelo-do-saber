@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { carregarAlunos } from "@/lib/mensalidades/consultas";
 import { enforceRateLimit } from "@/lib/rate-limit/check";
-import { linkDoGrupo } from "@/lib/infinitepay/grupo";
-import { baseUrlPublica } from "@/lib/infinitepay/links";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +14,8 @@ const REF = /^([a-f0-9]{12})-(\d{1,2}|tudo)$/;
  * consulta pública do aluno, que mostra a situação atualizada.
  * `codigo` é o HMAC do aluno — o mesmo de /mensalidades?a=.
  *
- * /p/<codigo>-tudo monta na hora um checkout com o que está em aberto (em
- * atraso + a atual). Sobrou uma só: vai pro link dela.
+ * /p/<codigo>-tudo abre a consulta, que já vem com as mensalidades devidas
+ * marcadas: o responsável vê o que está pagando antes do checkout.
  */
 export async function GET(req, { params }) {
   const limited = await enforceRateLimit(req, { bucket: "link_curto", max: 30, windowSec: 300 });
@@ -29,24 +27,10 @@ export async function GET(req, { params }) {
 
   const [, codigo, mes] = m;
   consulta.searchParams.set("a", codigo);
+  if (mes === "tudo") return NextResponse.redirect(consulta);
 
-  const supabase = createAdminClient();
-  const alunos = await carregarAlunos(supabase);
+  const alunos = await carregarAlunos(createAdminClient());
   const aluno = alunos.find(a => a.codigo === codigo);
-  if (!aluno) return NextResponse.redirect(consulta);
-
-  if (mes === "tudo") {
-    // Pendentes vêm em ordem de mês: a primeira é a que vence antes.
-    if (!aluno.pagarTudo) return NextResponse.redirect(aluno.pendentes[0]?.link || consulta);
-    try {
-      const url = await linkDoGrupo({ supabase, aluno, baseUrl: baseUrlPublica(req) });
-      return NextResponse.redirect(url || consulta);
-    } catch (e) {
-      console.error("p/tudo: não deu pra montar o link agrupado:", e.message);
-      return NextResponse.redirect(consulta);
-    }
-  }
-
-  const parcela = aluno.pendentes.find(p => p.mesNumero === Number(mes));
+  const parcela = aluno?.pendentes.find(p => p.mesNumero === Number(mes));
   return NextResponse.redirect(parcela?.link || consulta);
 }

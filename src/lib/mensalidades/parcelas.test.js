@@ -143,7 +143,7 @@ describe("visão de cobrança do aluno", () => {
     expect(a.total).toBeNull();
   });
 
-  it("resposta pública não vaza telefone, código nem ids", () => {
+  it("resposta pública não vaza telefone nem ids", () => {
     const a = montarAluno({
       student, contrato, responsavel, telefones: ["71993363876"],
       parcelas: [parcela(10)],
@@ -151,7 +151,6 @@ describe("visão de cobrança do aluno", () => {
     const r = paraResponsavel(a);
     expect(r).not.toHaveProperty("telefone");
     expect(r).not.toHaveProperty("whatsapp");
-    expect(r).not.toHaveProperty("codigo");
     expect(r).not.toHaveProperty("telefones");
     expect(r).not.toHaveProperty("id");
     expect(r.pendentes[0]).not.toHaveProperty("id");
@@ -167,13 +166,14 @@ describe("visão de cobrança do aluno", () => {
     expect(a.pagarTudo.parcelas.map(p => p.mes)).toEqual(["Agosto", "Setembro", "Outubro"]);
     expect(a.pagarTudo).toMatchObject({ meses: 3, total: 900 });
     const r = paraResponsavel(a);
-    expect(r.pagarTudo).toEqual({ meses: 3, total: 900, url: `/p/${a.codigo}-tudo` });
+    expect(r.sugeridos).toEqual([8, 9, 10]);
+    expect(r.codigo).toBe(a.codigo);
   });
 
   it("só a mensalidade atual em aberto: sem pagar tudo", () => {
     const a = montarAluno({ student, contrato, responsavel, parcelas: [parcela(10), parcela(11)] }, HOJE);
     expect(a.pagarTudo).toBeNull();
-    expect(paraResponsavel(a).pagarTudo).toBeNull();
+    expect(paraResponsavel(a).sugeridos).toEqual([10]);
   });
 });
 

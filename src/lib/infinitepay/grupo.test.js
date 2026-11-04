@@ -56,14 +56,13 @@ function fakeDb(tabelas) {
   };
 }
 
-function aluno(parcelas) {
+function aluno() {
   return {
     id: ALUNO_ID,
     aluno: "Maria Eduarda",
     responsavel: "Ana Souza",
     telefone: "71988887777",
     codigo: "abc123abc123",
-    pagarTudo: { parcelas, meses: parcelas.length, total: parcelas.reduce((s, p) => s + p.valor, 0) },
   };
 }
 
@@ -79,7 +78,7 @@ describe("link do pagar tudo", () => {
   it("cria um checkout com uma linha por mensalidade e grava o grupo", async () => {
     const supabase = fakeDb();
     const criar = vi.fn().mockResolvedValue({ url: "https://checkout/grupo" });
-    const url = await linkDoGrupo({ supabase, aluno: aluno([setembro, outubro, novembro]), baseUrl: "https://escola.test", criar });
+    const url = await linkDoGrupo({ supabase, aluno: aluno(), parcelas: [setembro, outubro, novembro], baseUrl: "https://escola.test", criar });
 
     expect(url).toBe("https://checkout/grupo");
     const [grupo] = supabase.db.payment_groups;
@@ -98,8 +97,8 @@ describe("link do pagar tudo", () => {
   it("reaproveita o link aberto com as mesmas parcelas", async () => {
     const supabase = fakeDb();
     const criar = vi.fn().mockResolvedValue({ url: "https://checkout/1" });
-    await linkDoGrupo({ supabase, aluno: aluno([setembro, outubro]), baseUrl: "https://e", criar });
-    const url = await linkDoGrupo({ supabase, aluno: aluno([outubro, setembro]), baseUrl: "https://e", criar });
+    await linkDoGrupo({ supabase, aluno: aluno(), parcelas: [setembro, outubro], baseUrl: "https://e", criar });
+    const url = await linkDoGrupo({ supabase, aluno: aluno(), parcelas: [outubro, setembro], baseUrl: "https://e", criar });
     expect(url).toBe("https://checkout/1");
     expect(criar).toHaveBeenCalledTimes(1);
   });
@@ -107,8 +106,8 @@ describe("link do pagar tudo", () => {
   it("parcelas mudaram (uma foi paga): cria outro link", async () => {
     const supabase = fakeDb();
     const criar = vi.fn().mockResolvedValueOnce({ url: "https://checkout/1" }).mockResolvedValueOnce({ url: "https://checkout/2" });
-    await linkDoGrupo({ supabase, aluno: aluno([setembro, outubro, novembro]), baseUrl: "https://e", criar });
-    const url = await linkDoGrupo({ supabase, aluno: aluno([outubro, novembro]), baseUrl: "https://e", criar });
+    await linkDoGrupo({ supabase, aluno: aluno(), parcelas: [setembro, outubro, novembro], baseUrl: "https://e", criar });
+    const url = await linkDoGrupo({ supabase, aluno: aluno(), parcelas: [outubro, novembro], baseUrl: "https://e", criar });
     expect(url).toBe("https://checkout/2");
     expect(supabase.db.payment_groups).toHaveLength(2);
   });
@@ -116,9 +115,9 @@ describe("link do pagar tudo", () => {
   it("link de ontem não é reaproveitado", async () => {
     const supabase = fakeDb();
     const criar = vi.fn().mockResolvedValueOnce({ url: "https://checkout/1" }).mockResolvedValueOnce({ url: "https://checkout/2" });
-    await linkDoGrupo({ supabase, aluno: aluno([setembro, outubro]), baseUrl: "https://e", criar });
+    await linkDoGrupo({ supabase, aluno: aluno(), parcelas: [setembro, outubro], baseUrl: "https://e", criar });
     const amanha = new Date(Date.now() + 25 * 60 * 60 * 1000);
-    const url = await linkDoGrupo({ supabase, aluno: aluno([setembro, outubro]), baseUrl: "https://e", criar, agora: amanha });
+    const url = await linkDoGrupo({ supabase, aluno: aluno(), parcelas: [setembro, outubro], baseUrl: "https://e", criar, agora: amanha });
     expect(url).toBe("https://checkout/2");
   });
 });

@@ -55,11 +55,12 @@ src/app/
   chamada/[classId]/       # attendance entry UI
   relatorio/[token]/       # PUBLIC report viewer — gated by token, not session
   mensalidades/            # PUBLIC tuition lookup for guardians (no session)
-  p/[ref]/                 # PUBLIC link curto: /p/<codigo>-<mês> → checkout da parcela; /p/<codigo>-tudo → checkout agrupado
+  p/[ref]/                 # PUBLIC link curto: /p/<codigo>-<mês> → checkout da parcela; /p/<codigo>-tudo → consulta com os devidos marcados
   api/
     chamada/[classId]/     # GET roster for class
     chamada/submit/        # POST attendance batch
     mensalidades/consulta/ # POST {nome, tel} → pending months + payment links
+    mensalidades/pagar/    # POST {codigo, meses} → checkout (agrupado) dos meses escolhidos
     infinitepay/links/     # POST gera links de pagamento (auth); GET ?teste=1 link de R$1
     infinitepay/webhook/   # POST notificação da InfinitePay (token na query + payment_check)
     cron/links/            # GET diário (vercel.json, 12:00 UTC) gera link pra parcela sem link da API
@@ -102,18 +103,21 @@ InfinitePay reenviar; 200 encerra. Lógica em `src/lib/infinitepay/webhook.js`
 `APP_URL` define a base do webhook/redirect; sem ela, em preview da Vercel o
 link apontaria pra URL protegida.
 
-**"Pagar tudo" (link agrupado).** Com 2+ mensalidades devidas (em atraso + a
+**Escolher o que pagar (checkout agrupado).** A consulta pública lista as
+mensalidades com caixa de seleção; já vêm marcadas as devidas (em atraso + a
 atual: do mês corrente ou vencendo em até 7 dias — `parcelasDoPagarTudo` em
-`parcelas.js`), o aluno ganha `pagarTudo` e o responsável vê o botão "Pagar
-tudo" na consulta; o aviso de WhatsApp leva um segundo link `/p/<codigo>-tudo`.
-O checkout é montado **no clique** (`src/lib/infinitepay/grupo.js`): vira
-linha em `payment_groups` (parcelas, valor) e um link com um item por mês,
-`order_nsu = grupo-<id>`; mesmo conjunto de parcelas em 24 h reaproveita o
-link. O webhook confere `payment_check` contra o total do grupo e baixa todas.
-Parcela do grupo que já estava paga por outra transação, ou parcela avulsa
-paga de novo com transação diferente (inclusive depois de baixa em dinheiro),
-vira evento `pago_em_duplicidade`, listado no topo do painel de Cobrança pra
-secretaria devolver — a InfinitePay não deixa cancelar link já criado.
+`parcelas.js`, exposto como `sugeridos`). "Pagar com Pix ou cartão" chama
+`POST /api/mensalidades/pagar {codigo, meses}` (rate-limited): uma só com
+link da API usa o link dela; senão `src/lib/infinitepay/grupo.js` grava o
+grupo em `payment_groups` e cria um checkout com um item por mês,
+`order_nsu = grupo-<id>` (mesmo conjunto em 24 h reaproveita o link). O
+checkout da InfinitePay mostra só o total no Pix — por isso a escolha e o
+detalhe ficam na nossa página. Com 2+ devidas, o aviso de WhatsApp leva
+`/p/<codigo>-tudo`, que abre essa consulta. O webhook confere `payment_check`
+contra o total do grupo e baixa todas. Parcela do grupo já paga por outra
+transação, ou parcela avulsa paga de novo com transação diferente (inclusive
+depois de baixa em dinheiro), vira evento `pago_em_duplicidade`, listado no
+topo do painel de Cobrança pra devolver — a InfinitePay não cancela link.
 
 **Consulta pública (`/mensalidades`).** O responsável digita nome da criança +
 4 últimos dígitos do telefone de qualquer responsável vinculado, ou abre o

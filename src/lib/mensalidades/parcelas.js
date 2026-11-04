@@ -137,15 +137,15 @@ export function montarAluno({ student, contrato, responsavel, telefones = [], pa
   };
 }
 
-/** Link curto que monta o checkout com todas as parcelas de `pagarTudo`. */
+/** Link curto pra consulta do aluno com as mensalidades devidas já marcadas. */
 export function linkPagarTudo(codigo, baseUrl = "") {
   return `${baseUrl}/p/${codigo}-tudo`;
 }
 
 /**
- * Formato devolvido pela rota pública — sem telefone nem ids. O link do
- * "pagar tudo" carrega o código do aluno, mas só dá acesso às mensalidades
- * dele, que quem chegou aqui já está vendo.
+ * Formato devolvido pela rota pública — sem telefone nem ids. O `codigo` vai
+ * junto porque é com ele que a página pede o checkout dos meses escolhidos;
+ * ele só dá acesso às mensalidades deste aluno, que quem chegou aqui já vê.
  */
 export function paraResponsavel(aluno) {
   return {
@@ -154,8 +154,8 @@ export function paraResponsavel(aluno) {
     serie: aluno.serie,
     pendentes: aluno.pendentes.map(({ id: _id, linkSource: _src, ...p }) => p),
     total: aluno.total,
-    pagarTudo: aluno.pagarTudo
-      ? { meses: aluno.pagarTudo.meses, total: aluno.pagarTudo.total, url: linkPagarTudo(aluno.codigo) }
-      : null,
+    codigo: aluno.codigo,
+    // Meses que já vêm marcados: os devidos, ou só o primeiro em aberto.
+    sugeridos: (aluno.pagarTudo?.parcelas || aluno.pendentes.slice(0, 1)).map(p => p.mesNumero),
   };
 }

@@ -111,7 +111,7 @@ describe("texto do aviso", () => {
 
   it("com mais de uma em aberto, traz o segundo link pra pagar todas", () => {
     const t = montarLembrete("D0", { ...base, tudo: { meses: 3, total: 990, link: "https://e/p/abc-tudo" } });
-    expect(t).toMatch(/pague as 3 mensalidades em aberto de uma vez \(R\$\s?990,00\):\nhttps:\/\/e\/p\/abc-tudo/);
+    expect(t).toMatch(/Há 3 mensalidades em aberto \(R\$\s?990,00\)\. Para ver todas e pagar de uma vez:\nhttps:\/\/e\/p\/abc-tudo/);
     expect(t.indexOf("https://pay/x")).toBeLessThan(t.indexOf("https://e/p/abc-tudo"));
   });
 

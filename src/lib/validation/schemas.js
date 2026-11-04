@@ -37,6 +37,12 @@ export const consultaMensalidadesSchema = z.union([
   }),
 ]);
 
+// Responsável escolhe quais mensalidades pagar num checkout só.
+export const pagarMensalidadesSchema = z.object({
+  codigo: z.string().regex(/^[a-f0-9]{12}$/, "Link inválido"),
+  meses: z.array(z.number().int().min(1).max(12)).min(1, "Escolha pelo menos uma mensalidade").max(12),
+});
+
 // Geração de links InfinitePay: um contrato, uma lista de parcelas, ou
 // "todas sem link do ano" em lotes.
 export const gerarLinksSchema = z
