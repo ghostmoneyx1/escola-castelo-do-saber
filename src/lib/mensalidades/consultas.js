@@ -107,8 +107,35 @@ async function ultimosAvisos(supabase, studentIds) {
   return porAluno;
 }
 
+// Janela do aviso de devolução no painel: depois disso a secretaria já resolveu.
+const DUPLICIDADE_DIAS = 90;
+
+/**
+ * Pagamentos confirmados de parcela que já estava paga (link avulso + "pagar
+ * tudo", ou dinheiro + link): a secretaria precisa devolver.
+ */
+async function pagamentosEmDuplicidade(supabase) {
+  const desde = new Date(Date.now() - DUPLICIDADE_DIAS * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("payment_events")
+    .select("id, created_at, transaction_nsu, installments(month, year, amount, students(name))")
+    .eq("result", "pago_em_duplicidade")
+    .gte("created_at", desde)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data || []).map(e => ({
+    id: e.id,
+    em: e.created_at,
+    transacao: e.transaction_nsu,
+    aluno: e.installments?.students?.name || null,
+    mes: e.installments ? `${e.installments.month}/${e.installments.year}` : null,
+    valor: e.installments?.amount == null ? null : Number(e.installments.amount),
+  }));
+}
+
 export async function obterCobranca(supabase, { ano = anoAtual() } = {}) {
   const carregados = await carregarAlunos(supabase, { ano });
+  const duplicidades = await pagamentosEmDuplicidade(supabase);
   const avisos = await ultimosAvisos(supabase, carregados.map(a => a.id));
   const alunos = carregados.map(a => ({ ...a, ultimoWhatsapp: avisos.get(a.id) || null })).sort(
     (a, b) =>
@@ -126,6 +153,7 @@ export async function obterCobranca(supabase, { ano = anoAtual() } = {}) {
   return {
     ano,
     alunos,
+    duplicidades,
     resumo: {
       totalAlunos: alunos.length,
       emDia: alunos.filter(a => a.pendentes.length === 0).length,

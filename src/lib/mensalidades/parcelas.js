@@ -56,6 +56,29 @@ export function situacaoParcela(parcela, hoje = new Date()) {
   return vencimento < inicioDoDia(hoje) ? "Em atraso" : "A vencer";
 }
 
+// O "pagar tudo" junta o que já venceu com a mensalidade atual: a do mês
+// corrente ou a que vence nos próximos dias (o aviso D-1 do dia 5 sai no fim
+// do mês anterior). Mensalidade lá na frente não entra.
+const JANELA_ATUAL_DIAS = 7;
+export const MINIMO_PAGAR_TUDO = 2;
+
+function iso(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Parcelas que entram no link "pagar tudo" (as em atraso + a atual). */
+export function parcelasDoPagarTudo(pendentes, hoje = new Date()) {
+  const limite = inicioDoDia(hoje);
+  limite.setDate(limite.getDate() + JANELA_ATUAL_DIAS);
+  const ateDia = iso(limite);
+  const mesAtual = iso(hoje).slice(0, 7);
+  return pendentes.filter(p => {
+    if (!(p.valor > 0)) return false;
+    const venc = String(p.vencimento).slice(0, 10);
+    return p.situacao === "Em atraso" || venc <= ateDia || venc.slice(0, 7) <= mesAtual;
+  });
+}
+
 /** Responsável principal; se ele não tiver telefone, o primeiro que tiver. */
 export function escolherResponsavel(vinculos = []) {
   const ordenados = [...vinculos].sort(
@@ -88,6 +111,7 @@ export function montarAluno({ student, contrato, responsavel, telefones = [], pa
     }));
 
   const total = pendentes.reduce((soma, p) => soma + (p.valor || 0), 0);
+  const doPagarTudo = parcelasDoPagarTudo(pendentes, hoje);
 
   return {
     id: student.id,
@@ -106,10 +130,23 @@ export function montarAluno({ student, contrato, responsavel, telefones = [], pa
     parcelasSemLink: pendentes.filter(p => !p.link).length,
     // Link colado da planilha paga, mas não avisa o webhook: conta como pendente de API.
     parcelasSemLinkApi: pendentes.filter(p => !p.link || p.linkSource === "manual").length,
+    pagarTudo:
+      doPagarTudo.length >= MINIMO_PAGAR_TUDO
+        ? { parcelas: doPagarTudo, meses: doPagarTudo.length, total: doPagarTudo.reduce((s, p) => s + p.valor, 0) }
+        : null,
   };
 }
 
-/** Formato devolvido pela rota pública — sem telefone, código nem ids. */
+/** Link curto que monta o checkout com todas as parcelas de `pagarTudo`. */
+export function linkPagarTudo(codigo, baseUrl = "") {
+  return `${baseUrl}/p/${codigo}-tudo`;
+}
+
+/**
+ * Formato devolvido pela rota pública — sem telefone nem ids. O link do
+ * "pagar tudo" carrega o código do aluno, mas só dá acesso às mensalidades
+ * dele, que quem chegou aqui já está vendo.
+ */
 export function paraResponsavel(aluno) {
   return {
     aluno: aluno.aluno,
@@ -117,5 +154,8 @@ export function paraResponsavel(aluno) {
     serie: aluno.serie,
     pendentes: aluno.pendentes.map(({ id: _id, linkSource: _src, ...p }) => p),
     total: aluno.total,
+    pagarTudo: aluno.pagarTudo
+      ? { meses: aluno.pagarTudo.meses, total: aluno.pagarTudo.total, url: linkPagarTudo(aluno.codigo) }
+      : null,
   };
 }

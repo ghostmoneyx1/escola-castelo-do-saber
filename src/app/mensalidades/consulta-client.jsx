@@ -54,6 +54,28 @@ function ParcelaItem({ parcela }) {
   );
 }
 
+function PagarTudo({ pagarTudo }) {
+  return (
+    <div className="flex items-center justify-between gap-3 bg-muted rounded-xl px-4 py-3 mt-5">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-foreground">Pagar tudo de uma vez</p>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          {pagarTudo.meses} mensalidades · {fmtMoeda(pagarTudo.total)}
+        </p>
+      </div>
+      <a
+        href={pagarTudo.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="shrink-0 inline-flex items-center gap-1.5 h-10 px-4 rounded-[10px] bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+      >
+        Pagar tudo
+        <ExternalLink className="h-3.5 w-3.5" />
+      </a>
+    </div>
+  );
+}
+
 function ResultadoCard({ resultado }) {
   return (
     <div className="bg-white border border-border rounded-xl p-6">
@@ -71,6 +93,7 @@ function ResultadoCard({ resultado }) {
         </div>
       ) : (
         <>
+          {resultado.pagarTudo && <PagarTudo pagarTudo={resultado.pagarTudo} />}
           <div className="flex flex-col gap-2 mt-5">
             {resultado.pendentes.map((p) => (
               <ParcelaItem key={p.mes} parcela={p} />

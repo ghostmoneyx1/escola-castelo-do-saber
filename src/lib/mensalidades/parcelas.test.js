@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   normalizar, normalizarWhatsapp, codigoDoAluno, situacaoParcela,
-  escolherResponsavel, montarAluno, paraResponsavel,
+  escolherResponsavel, montarAluno, paraResponsavel, parcelasDoPagarTudo,
 } from "./parcelas";
 
 const HOJE = new Date("2026-10-07T12:00:00");
@@ -157,5 +157,37 @@ describe("visão de cobrança do aluno", () => {
     expect(r.pendentes[0]).not.toHaveProperty("id");
     expect(r.pendentes[0]).not.toHaveProperty("linkSource");
     expect(r.pendentes[0].mes).toBe("Outubro");
+  });
+
+  it("pagar tudo junta as atrasadas com a do mês e deixa as futuras de fora", () => {
+    const a = montarAluno({
+      student, contrato, responsavel,
+      parcelas: [parcela(8), parcela(9), parcela(10), parcela(11), parcela(12)],
+    }, HOJE);
+    expect(a.pagarTudo.parcelas.map(p => p.mes)).toEqual(["Agosto", "Setembro", "Outubro"]);
+    expect(a.pagarTudo).toMatchObject({ meses: 3, total: 900 });
+    const r = paraResponsavel(a);
+    expect(r.pagarTudo).toEqual({ meses: 3, total: 900, url: `/p/${a.codigo}-tudo` });
+  });
+
+  it("só a mensalidade atual em aberto: sem pagar tudo", () => {
+    const a = montarAluno({ student, contrato, responsavel, parcelas: [parcela(10), parcela(11)] }, HOJE);
+    expect(a.pagarTudo).toBeNull();
+    expect(paraResponsavel(a).pagarTudo).toBeNull();
+  });
+});
+
+describe("parcelas do pagar tudo", () => {
+  const p = (vencimento, situacao, valor = 300) => ({ vencimento, situacao, valor });
+
+  it("vencimento nos próximos 7 dias entra mesmo sendo do mês que vem", () => {
+    const hoje = new Date("2026-10-31T12:00:00");
+    const r = parcelasDoPagarTudo([p("2026-10-05", "Em atraso"), p("2026-11-05", "A vencer"), p("2026-12-05", "A vencer")], hoje);
+    expect(r.map(x => x.vencimento)).toEqual(["2026-10-05", "2026-11-05"]);
+  });
+
+  it("parcela sem valor fica de fora (não dá pra cobrar no checkout)", () => {
+    const r = parcelasDoPagarTudo([p("2026-09-10", "Em atraso", null), p("2026-10-10", "A vencer")], HOJE);
+    expect(r).toHaveLength(1);
   });
 });

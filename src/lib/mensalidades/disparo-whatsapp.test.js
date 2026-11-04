@@ -105,6 +105,16 @@ describe("texto do aviso", () => {
     expect(t).toContain("https://pay/x");
   });
 
+  it("sem outras em aberto, sai só o link da parcela", () => {
+    expect(montarLembrete("D0", base)).not.toContain("de uma vez");
+  });
+
+  it("com mais de uma em aberto, traz o segundo link pra pagar todas", () => {
+    const t = montarLembrete("D0", { ...base, tudo: { meses: 3, total: 990, link: "https://e/p/abc-tudo" } });
+    expect(t).toMatch(/pague as 3 mensalidades em aberto de uma vez \(R\$\s?990,00\):\nhttps:\/\/e\/p\/abc-tudo/);
+    expect(t.indexOf("https://pay/x")).toBeLessThan(t.indexOf("https://e/p/abc-tudo"));
+  });
+
   it("D+3 fala em atraso e lembra do pagamento na secretaria", () => {
     const t = montarLembrete("D+3", base);
     expect(t).toContain("vencida em 10/11");
@@ -128,6 +138,12 @@ describe("seleção dos avisos", () => {
     const [r] = selecionarAvisos([a], { hoje, baseUrl });
     expect(r.body).toContain("https://escola.test/p/abc123abc123-11");
     expect(r.body).not.toContain("infinitepay");
+  });
+
+  it("aluno com várias em aberto ganha o link curto do pagar tudo", () => {
+    const a = aluno({ pendentes: [parcela("p1", "2026-11-10")], pagarTudo: { meses: 2, total: 660, parcelas: [] } });
+    const [r] = selecionarAvisos([a], { hoje, baseUrl });
+    expect(r.body).toContain("https://escola.test/p/abc123abc123-tudo");
   });
 
   it("pula telefone ausente ou sem o 9", () => {

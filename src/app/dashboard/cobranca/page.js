@@ -35,5 +35,5 @@ export default async function CobrancaPage() {
     );
   }
 
-  return <CobrancaClient ano={dados.ano} alunos={dados.alunos} resumo={dados.resumo} />;
+  return <CobrancaClient ano={dados.ano} alunos={dados.alunos} resumo={dados.resumo} duplicidades={dados.duplicidades} />;
 }

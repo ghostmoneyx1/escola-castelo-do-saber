@@ -79,12 +79,21 @@ describe("webhook da InfinitePay", () => {
     expect(checar).not.toHaveBeenCalled();
   });
 
-  it("parcela já paga é duplicado e não consulta a InfinitePay", async () => {
-    const supabase = fakeSupabase({ parcela: { ...parcelaAberta, status: "Pago" } });
+  it("parcela já paga pela mesma transação é duplicado e não consulta a InfinitePay", async () => {
+    const supabase = fakeSupabase({ parcela: { ...parcelaAberta, status: "Pago", transaction_nsu: "tx-123" } });
     const checar = vi.fn();
     const r = await processarWebhook({ corpo: corpoPago(), supabase, checar });
     expect(r.resultado).toBe("duplicado");
     expect(checar).not.toHaveBeenCalled();
+    expect(supabase.updates).toHaveLength(0);
+  });
+
+  it("parcela já paga por outra transação vira pagamento em duplicidade", async () => {
+    const supabase = fakeSupabase({ parcela: { ...parcelaAberta, status: "Pago", transaction_nsu: "tx-grupo" } });
+    const checar = vi.fn().mockResolvedValue({ paid: true, paid_amount: 30000 });
+    const r = await processarWebhook({ corpo: corpoPago(), supabase, checar });
+    expect(r.resultado).toBe("pago_em_duplicidade");
+    expect(supabase.inserts[0].row).toMatchObject({ result: "pago_em_duplicidade", verified: true, installment_id: PARCELA_ID });
     expect(supabase.updates).toHaveLength(0);
   });
 

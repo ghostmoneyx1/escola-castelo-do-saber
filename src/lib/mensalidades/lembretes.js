@@ -58,9 +58,11 @@ function variante(opcoes, chave) {
 
 /**
  * Texto do aviso. `parcela` vem de `montarAluno` (mes, valor, vencimento, link);
- * `link` é o da InfinitePay ou, sem ele, a consulta pública do aluno.
+ * `link` é o link curto da parcela. `tudo` ({ meses, total, link }) entra
+ * quando há mais de uma mensalidade em aberto: um segundo link que paga
+ * todas de uma vez.
  */
-export function montarLembrete(estagio, { aluno, responsavel, parcela, link }) {
+export function montarLembrete(estagio, { aluno, responsavel, parcela, link, tudo }) {
   const nome = primeiroNome(responsavel);
   const ola = variante(nome ? [`Olá, ${nome}!`, `Oi, ${nome}, tudo bem?`, `Bom dia, ${nome}!`] : ["Olá!", "Oi, tudo bem?"], parcela.id);
   const valor = parcela.valor != null ? ` (${fmtMoeda(parcela.valor)})` : "";
@@ -73,6 +75,9 @@ export function montarLembrete(estagio, { aluno, responsavel, parcela, link }) {
   }[estagio];
 
   const linhas = [ola, "", corpo, "", "Para pagar por Pix ou cartão:", link, ""];
+  if (tudo) {
+    linhas.push(`Se preferir, pague as ${tudo.meses} mensalidades em aberto de uma vez (${fmtMoeda(tudo.total)}):`, tudo.link, "");
+  }
   linhas.push(
     estagio === "D+3"
       ? "Se já pagou na secretaria, pode desconsiderar. Qualquer dúvida, fale com a secretaria."
