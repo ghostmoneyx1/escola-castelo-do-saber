@@ -76,7 +76,7 @@ export function montarLembrete(estagio, { aluno, responsavel, parcela, link, tud
 
   const linhas = [ola, "", corpo, "", "Para pagar por Pix ou cartão:", link, ""];
   if (tudo) {
-    linhas.push(`Se preferir, pague as ${tudo.meses} mensalidades em aberto de uma vez (${fmtMoeda(tudo.total)}):`, tudo.link, "");
+    linhas.push(`Há ${tudo.meses} mensalidades em aberto (${fmtMoeda(tudo.total)}). Para ver todas e pagar de uma vez:`, tudo.link, "");
   }
   linhas.push(
     estagio === "D+3"

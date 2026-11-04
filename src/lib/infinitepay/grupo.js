@@ -2,10 +2,9 @@ import { criarLink, paraCentavos } from "./client";
 import { clienteDoLink, webhookUrl } from "./links";
 
 /**
- * "Pagar tudo": um checkout da InfinitePay com várias parcelas do mesmo aluno.
- * O grupo nasce em `payment_groups` quando o responsável clica no link curto
- * (/p/<codigo>-tudo), com o que está em aberto naquele momento — então o
- * valor nunca fica velho. O `order_nsu` é "grupo-<id>"; o webhook usa isso
+ * Checkout da InfinitePay com várias parcelas do mesmo aluno. O grupo nasce
+ * em `payment_groups` quando o responsável escolhe os meses na consulta
+ * pública e clica em pagar — então o valor nunca fica velho. O `order_nsu` é "grupo-<id>"; o webhook usa isso
  * pra baixar todas as parcelas de uma vez.
  */
 
@@ -21,10 +20,9 @@ function mesmoConjunto(a = [], b = []) {
   return b.every(x => s.has(x));
 }
 
-/** URL do checkout com todas as parcelas de `aluno.pagarTudo` (cria se preciso). */
-export async function linkDoGrupo({ supabase, aluno, baseUrl, criar = criarLink, agora = new Date() }) {
-  const parcelas = aluno.pagarTudo?.parcelas || [];
-  if (!parcelas.length) return null;
+/** URL do checkout com as `parcelas` escolhidas do aluno (cria se preciso). */
+export async function linkDoGrupo({ supabase, aluno, parcelas, baseUrl, criar = criarLink, agora = new Date() }) {
+  if (!parcelas?.length) return null;
   const ids = parcelas.map(p => p.id);
 
   const { data: abertos, error: erroBusca } = await supabase
