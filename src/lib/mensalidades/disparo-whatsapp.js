@@ -26,11 +26,11 @@ const LOTE_TRAVADO_MS = 24 * 60 * 60 * 1000;
 // bloco único: poucas mensagens por vez, teto por dia e só em horário comercial.
 export const RITMO_PADRAO = { porRodada: 6, porDia: 30, horaInicio: 8, horaFim: 18 };
 
-// Quando o teto do dia não dá pra todos, quem vence hoje e quem está atrasado
-// vêm antes do lembrete de véspera (que vira o aviso "vence hoje" amanhã), e o
-// de início de mês por último (ele tem mais dias pra sair); no mesmo estágio,
-// quem ainda não recebeu nada daquela parcela vai primeiro.
-const PRIORIDADE = { D0: 0, "D+3": 1, "D-1": 2, M1: 3 };
+// Quando o teto do dia não dá pra todos: primeiro quem vence hoje, depois o
+// atraso mais longo (D+3 é o último aviso daquela parcela; D+1 ainda terá
+// outros), e o de início de mês por último (ele tem até o dia 5 pra sair).
+// No mesmo estágio, quem ainda não recebeu nada daquela parcela vai primeiro.
+const PRIORIDADE = { D0: 0, "D+3": 1, "D+2": 2, "D+1": 3, M1: 4 };
 
 const FUSO_ESCOLA = "America/Bahia";
 
@@ -97,6 +97,30 @@ async function historico(supabase, avisos, { incluirSimulados }) {
     ),
     avisadas: new Set(linhas.filter(r => r.status === "enviado" || r.status === "na_fila").map(r => r.installment_id)),
   };
+}
+
+/**
+ * No máximo uma mensagem por telefone por dia (decisão da escola, 06/11/2026):
+ * responsável com dois filhos, ou com duas parcelas no mesmo dia, recebe só a
+ * de maior prioridade. Quem já recebeu hoje fica de fora.
+ */
+export function umPorTelefone(avisos, { jaAvisadosHoje = new Set(), avisadas = new Set() } = {}) {
+  const vistos = new Set(jaAvisadosHoje);
+  return [...avisos]
+    .sort((x, y) =>
+      PRIORIDADE[x.stage] - PRIORIDADE[y.stage] ||
+      Number(avisadas.has(x.installment_id)) - Number(avisadas.has(y.installment_id)))
+    .filter(a => !vistos.has(a.phone) && vistos.add(a.phone));
+}
+
+async function telefonesDeHoje(supabase, hoje, status) {
+  const { data, error } = await supabase
+    .from("whatsapp_messages")
+    .select("phone")
+    .in("status", status)
+    .gte("created_at", inicioDoDiaUtc(hoje));
+  if (error) throw new Error(error.message);
+  return new Set((data || []).map(r => r.phone).filter(Boolean));
 }
 
 async function inserir(supabase, linhas) {
@@ -193,7 +217,8 @@ export async function dispararCobranca({
   const avisos = candidatos.filter(a => !tratados.has(`${a.installment_id}|${a.stage}`));
 
   const pulados = avisos.filter(a => a.status === "pulado");
-  const prontos = avisos.filter(a => a.status === "pronto");
+  const jaAvisadosHoje = await telefonesDeHoje(supabase, hoje, enviar ? ["na_fila", "enviado"] : ["simulado"]);
+  const prontos = umPorTelefone(avisos.filter(a => a.status === "pronto"), { jaAvisadosHoje, avisadas });
   const linha = ({ installment_id, student_id, stage, phone, body, error }) =>
     ({ installment_id, student_id, stage, phone, body, error });
 
@@ -225,11 +250,7 @@ export async function dispararCobranca({
     resumo.parado = `teto do dia atingido (${ritmo.porDia})`;
     return resumo;
   }
-  const daRodada = [...prontos]
-    .sort((x, y) =>
-      PRIORIDADE[x.stage] - PRIORIDADE[y.stage] ||
-      Number(avisadas.has(x.installment_id)) - Number(avisadas.has(y.installment_id)))
-    .slice(0, vagas);
+  const daRodada = prontos.slice(0, vagas);
 
   const resolvidos = [];
   const descartados = [];

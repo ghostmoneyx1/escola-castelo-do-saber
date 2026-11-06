@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { estagioDaParcela, hojeNaEscola, montarCobrancaManual, montarLembrete, vencimentosDoDia } from "./lembretes";
-import { selecionarAvisos, dispararCobranca, conciliarLotes } from "./disparo-whatsapp";
+import { selecionarAvisos, dispararCobranca, conciliarLotes, umPorTelefone } from "./disparo-whatsapp";
 import * as consultas from "./consultas";
 import * as openwa from "@/lib/openwa/client";
 
@@ -78,12 +78,14 @@ describe("estágios e datas", () => {
     expect(hojeNaEscola(new Date("2026-11-10T02:00:00Z"))).toBe("2026-11-09");
   });
 
-  it("D-1 na véspera, D0 no dia, D+3 três dias depois", () => {
-    expect(vencimentosDoDia("2026-11-09")).toEqual({ "D-1": "2026-11-10", D0: "2026-11-09", "D+3": "2026-11-06" });
-    expect(estagioDaParcela("2026-11-10", "2026-11-09")).toBe("D-1");
+  it("D0 no dia e D+1, D+2, D+3 nos três dias seguintes; véspera não", () => {
+    expect(vencimentosDoDia("2026-11-12")).toEqual({ D0: "2026-11-12", "D+1": "2026-11-11", "D+2": "2026-11-10", "D+3": "2026-11-09" });
+    expect(estagioDaParcela("2026-11-10", "2026-11-09")).toBeNull();
     expect(estagioDaParcela("2026-11-10", "2026-11-10")).toBe("D0");
+    expect(estagioDaParcela("2026-11-10", "2026-11-11")).toBe("D+1");
+    expect(estagioDaParcela("2026-11-10", "2026-11-12")).toBe("D+2");
     expect(estagioDaParcela("2026-11-10", "2026-11-13")).toBe("D+3");
-    expect(estagioDaParcela("2026-11-10", "2026-11-12")).toBeNull();
+    expect(estagioDaParcela("2026-11-10", "2026-11-14")).toBeNull();
   });
 
   it("M1 no dia 1 do mês do vencimento; quem não coube sai até o dia 5", () => {
@@ -94,16 +96,14 @@ describe("estágios e datas", () => {
     expect(estagioDaParcela("2026-12-10", "2026-11-30")).toBeNull();
   });
 
-  it("M1 não sai colado no vencimento nem passa na frente do D-1/D0", () => {
+  it("M1 nunca no próprio dia do vencimento", () => {
     expect(estagioDaParcela("2026-12-01", "2026-12-01")).toBe("D0");
-    expect(estagioDaParcela("2026-12-02", "2026-12-01")).toBe("D-1");
-    expect(estagioDaParcela("2026-12-03", "2026-12-01")).toBeNull();
-    expect(estagioDaParcela("2026-12-04", "2026-12-01")).toBe("M1");
-    expect(estagioDaParcela("2026-12-05", "2026-12-03")).toBeNull();
+    expect(estagioDaParcela("2026-12-02", "2026-12-01")).toBe("M1");
+    expect(estagioDaParcela("2026-12-03", "2026-12-03")).toBe("D0");
   });
 
   it("atravessa virada de mês", () => {
-    expect(estagioDaParcela("2026-12-01", "2026-11-30")).toBe("D-1");
+    expect(estagioDaParcela("2026-11-30", "2026-12-01")).toBe("D+1");
     expect(estagioDaParcela("2026-10-30", "2026-11-02")).toBe("D+3");
   });
 });
@@ -138,6 +138,15 @@ describe("texto do aviso", () => {
     expect(t).toContain("https://pay/x");
   });
 
+  it("D+1 e D+2 cobram o atraso com textos diferentes", () => {
+    const d1 = montarLembrete("D+1", base);
+    const d2 = montarLembrete("D+2", base);
+    expect(d1).toContain("venceu ontem (10/11)");
+    expect(d2).toContain("vencida em 10/11");
+    expect(d1).not.toBe(d2);
+    for (const t of [d1, d2]) expect(t).toContain("pagou na secretaria");
+  });
+
   it("D+3 fala em atraso e lembra do pagamento na secretaria", () => {
     const t = montarLembrete("D+3", base);
     expect(t).toContain("vencida em 10/11");
@@ -150,7 +159,7 @@ describe("Cobrar manual (secretaria)", () => {
   const hoje = "2026-11-06";
 
   it("usa o mesmo texto e link curto do aviso automático", () => {
-    const a = aluno({ pendentes: [parcela("p1", "2026-11-07")] });
+    const a = aluno({ pendentes: [parcela("p1", "2026-11-05", { situacao: "Em atraso" })] });
     const t = montarCobrancaManual(a, { baseUrl, hoje });
     const [linha] = selecionarAvisos([a], { hoje, baseUrl });
     expect(t).toBe(linha.body);
@@ -189,28 +198,28 @@ describe("seleção dos avisos", () => {
   const baseUrl = "https://escola.test";
 
   it("só pega parcela no dia do estágio", () => {
-    const a = aluno({ pendentes: [parcela("p1", "2026-11-10"), parcela("p2", "2026-12-10")] });
+    const a = aluno({ pendentes: [parcela("p1", "2026-11-08"), parcela("p2", "2026-12-10")] });
     const r = selecionarAvisos([a], { hoje, baseUrl });
     expect(r).toHaveLength(1);
-    expect(r[0]).toMatchObject({ installment_id: "p1", stage: "D-1", status: "pronto", phone: "5571993363876" });
+    expect(r[0]).toMatchObject({ installment_id: "p1", stage: "D+1", status: "pronto", phone: "5571993363876" });
   });
 
   it("manda o link curto do site, não o da InfinitePay (~470 caracteres)", () => {
-    const a = aluno({ pendentes: [parcela("p1", "2026-11-10")] });
+    const a = aluno({ pendentes: [parcela("p1", "2026-11-08")] });
     const [r] = selecionarAvisos([a], { hoje, baseUrl });
     expect(r.body).toContain("https://escola.test/p/abc123abc123-11");
     expect(r.body).not.toContain("infinitepay");
   });
 
   it("aluno com várias em aberto ganha o link curto do pagar tudo", () => {
-    const a = aluno({ pendentes: [parcela("p1", "2026-11-10")], pagarTudo: { meses: 2, total: 660, parcelas: [] } });
+    const a = aluno({ pendentes: [parcela("p1", "2026-11-08")], pagarTudo: { meses: 2, total: 660, parcelas: [] } });
     const [r] = selecionarAvisos([a], { hoje, baseUrl });
     expect(r.body).toContain("https://escola.test/p/abc123abc123-tudo");
   });
 
   it("pula telefone ausente ou sem o 9", () => {
-    const semTel = aluno({ whatsapp: null, pendentes: [parcela("p1", "2026-11-10")] });
-    const suspeito = aluno({ telefoneSuspeito: true, pendentes: [parcela("p2", "2026-11-10")] });
+    const semTel = aluno({ whatsapp: null, pendentes: [parcela("p1", "2026-11-08")] });
+    const suspeito = aluno({ telefoneSuspeito: true, pendentes: [parcela("p2", "2026-11-08")] });
     const r = selecionarAvisos([semTel, suspeito], { hoje, baseUrl });
     expect(r.map(x => x.status)).toEqual(["pulado", "pulado"]);
   });
@@ -224,8 +233,8 @@ describe("disparo do dia", () => {
     vi.clearAllMocks();
     openwa.resolverChatId.mockImplementation(async (_cfg, n) => `${n}@s.whatsapp.net`);
     consultas.carregarAlunos.mockResolvedValue([
-      aluno({ pendentes: [parcela("p1", "2026-11-10")] }),
-      aluno({ id: "aluno-2", aluno: "Samir Gael", whatsapp: null, pendentes: [parcela("p2", "2026-11-10")] }),
+      aluno({ pendentes: [parcela("p1", "2026-11-08")] }),
+      aluno({ id: "aluno-2", aluno: "Samir Gael", whatsapp: null, pendentes: [parcela("p2", "2026-11-08")] }),
     ]);
   });
 
@@ -238,7 +247,7 @@ describe("disparo do dia", () => {
   });
 
   it("simulação não repete na mesma rodada do dia", async () => {
-    const sb = fakeSupabase([{ installment_id: "p1", stage: "D-1", status: "simulado" }]);
+    const sb = fakeSupabase([{ installment_id: "p1", stage: "D+1", status: "simulado" }]);
     const r = await dispararCobranca({ supabase: sb, cfg, ativo: false, baseUrl, agora });
     expect(r.simulados).toBe(0);
   });
@@ -260,10 +269,10 @@ describe("disparo do dia", () => {
   it("não reenvia aviso que já saiu, mas tenta de novo o que falhou", async () => {
     openwa.statusSessao.mockResolvedValue("ready");
     openwa.enviarLote.mockResolvedValue({});
-    const enviado = fakeSupabase([{ installment_id: "p1", stage: "D-1", status: "enviado" }]);
+    const enviado = fakeSupabase([{ installment_id: "p1", stage: "D+1", status: "enviado" }]);
     expect((await dispararCobranca({ supabase: enviado, cfg, ativo: true, baseUrl, agora })).enfileirados).toBe(0);
 
-    const falhou = fakeSupabase([{ installment_id: "p1", stage: "D-1", status: "falhou" }]);
+    const falhou = fakeSupabase([{ installment_id: "p1", stage: "D+1", status: "falhou" }]);
     expect((await dispararCobranca({ supabase: falhou, cfg, ativo: true, baseUrl, agora })).enfileirados).toBe(1);
   });
 
@@ -279,8 +288,8 @@ describe("disparo do dia", () => {
 
   it("erro ao conferir um número vira falha só daquele aviso", async () => {
     consultas.carregarAlunos.mockResolvedValue([
-      aluno({ pendentes: [parcela("p1", "2026-11-10")] }),
-      aluno({ id: "aluno-3", aluno: "Davi", whatsapp: "5571988887777", pendentes: [parcela("p3", "2026-11-10")] }),
+      aluno({ pendentes: [parcela("p1", "2026-11-08")] }),
+      aluno({ id: "aluno-3", aluno: "Davi", whatsapp: "5571988887777", pendentes: [parcela("p3", "2026-11-08")] }),
     ]);
     openwa.statusSessao.mockResolvedValue("ready");
     openwa.enviarLote.mockResolvedValue({});
@@ -325,7 +334,7 @@ describe("disparo do dia", () => {
 
   describe("ritmo", () => {
     const tres = () => [
-      aluno({ id: "a1", whatsapp: "5571900000001", pendentes: [parcela("vespera", "2026-11-10")] }),
+      aluno({ id: "a1", whatsapp: "5571900000001", pendentes: [parcela("vespera", "2026-11-08")] }),
       aluno({ id: "a2", whatsapp: "5571900000002", pendentes: [parcela("hoje", "2026-11-09")] }),
       aluno({ id: "a3", whatsapp: "5571900000003", pendentes: [parcela("atraso", "2026-11-06")] }),
     ];
@@ -362,12 +371,36 @@ describe("disparo do dia", () => {
         aluno({ id: "a2", whatsapp: "5571900000002", pendentes: [parcela("nunca-avisada", "2026-11-09")] }),
       ]);
       const sb = fakeSupabase([
-        { installment_id: "ja-avisada", stage: "D-1", status: "enviado", created_at: "2026-11-08T12:10:00Z" },
+        { installment_id: "ja-avisada", stage: "D+1", status: "enviado", created_at: "2026-11-08T12:10:00Z" },
       ]);
       await dispararCobranca({
         supabase: sb, cfg, ativo: true, baseUrl, agora, ritmo: { porRodada: 1, porDia: 30, horaInicio: 8, horaFim: 18 },
       });
       expect(sb.linhas.filter(l => l.status === "na_fila").map(l => l.installment_id)).toEqual(["nunca-avisada"]);
+    });
+
+    it("um telefone recebe no máximo uma mensagem por dia", async () => {
+      const tel = "5571900000009";
+      consultas.carregarAlunos.mockResolvedValue([
+        aluno({ id: "irmao-1", whatsapp: tel, pendentes: [parcela("i1", "2026-11-08")] }),
+        aluno({ id: "irmao-2", whatsapp: tel, pendentes: [parcela("i2", "2026-11-09")] }),
+        aluno({ id: "outro", whatsapp: "5571900000010", pendentes: [parcela("o1", "2026-11-09")] }),
+      ]);
+      const sb = fakeSupabase();
+      const ritmo = { porRodada: 6, porDia: 60, horaInicio: 8, horaFim: 18 };
+      await dispararCobranca({ supabase: sb, cfg, ativo: true, baseUrl, agora, ritmo });
+      // Fica a de maior prioridade (D0) desse telefone.
+      expect(sb.linhas.filter(l => l.status === "na_fila").map(l => l.installment_id).sort()).toEqual(["i2", "o1"]);
+
+      // Rodada seguinte do mesmo dia: o irmão que sobrou não sai.
+      openwa.statusLote.mockResolvedValue({ status: "completed", results: [{ status: "sent" }, { status: "sent" }] });
+      const r = await dispararCobranca({ supabase: sb, cfg, ativo: true, baseUrl, agora: new Date("2026-11-09T13:07:00Z"), ritmo });
+      expect(r.enfileirados).toBe(0);
+    });
+
+    it("umPorTelefone respeita quem já recebeu hoje", () => {
+      const avisos = [{ installment_id: "a", stage: "D0", phone: "1" }, { installment_id: "b", stage: "D0", phone: "2" }];
+      expect(umPorTelefone(avisos, { jaAvisadosHoje: new Set(["1"]) }).map(a => a.installment_id)).toEqual(["b"]);
     });
 
     it("para no teto do dia", async () => {
