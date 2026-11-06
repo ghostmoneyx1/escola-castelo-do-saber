@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Rodada de avisos de cobrança D-1, D0 e D+3 por WhatsApp via OpenWA.
+ * Rodada de avisos de cobrança (início do mês, D-1, D0 e D+3) por WhatsApp via OpenWA.
  * Chamada de hora em hora pelo agendador da VPS (9h–17h) e uma vez por dia
  * pelo cron da Vercel; cada chamada manda no máximo WHATSAPP_POR_RODADA
  * mensagens e respeita o teto WHATSAPP_POR_DIA. Só envia de verdade com

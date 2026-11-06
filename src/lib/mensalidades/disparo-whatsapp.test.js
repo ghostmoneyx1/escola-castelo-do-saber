@@ -86,6 +86,22 @@ describe("estágios e datas", () => {
     expect(estagioDaParcela("2026-11-10", "2026-11-12")).toBeNull();
   });
 
+  it("M1 no dia 1 do mês do vencimento; quem não coube sai até o dia 5", () => {
+    expect(estagioDaParcela("2026-12-10", "2026-12-01")).toBe("M1");
+    expect(estagioDaParcela("2026-12-10", "2026-12-05")).toBe("M1");
+    expect(estagioDaParcela("2026-12-10", "2026-12-06")).toBeNull();
+    // Mês anterior ainda não é "início do mês" da parcela.
+    expect(estagioDaParcela("2026-12-10", "2026-11-30")).toBeNull();
+  });
+
+  it("M1 não sai colado no vencimento nem passa na frente do D-1/D0", () => {
+    expect(estagioDaParcela("2026-12-01", "2026-12-01")).toBe("D0");
+    expect(estagioDaParcela("2026-12-02", "2026-12-01")).toBe("D-1");
+    expect(estagioDaParcela("2026-12-03", "2026-12-01")).toBeNull();
+    expect(estagioDaParcela("2026-12-04", "2026-12-01")).toBe("M1");
+    expect(estagioDaParcela("2026-12-05", "2026-12-03")).toBeNull();
+  });
+
   it("atravessa virada de mês", () => {
     expect(estagioDaParcela("2026-12-01", "2026-11-30")).toBe("D-1");
     expect(estagioDaParcela("2026-10-30", "2026-11-02")).toBe("D+3");
@@ -113,6 +129,13 @@ describe("texto do aviso", () => {
     const t = montarLembrete("D0", { ...base, tudo: { meses: 3, total: 990, link: "https://e/p/abc-tudo" } });
     expect(t).toMatch(/Há 3 mensalidades em aberto \(R\$\s?990,00\)\. Para ver todas e pagar de uma vez:\nhttps:\/\/e\/p\/abc-tudo/);
     expect(t.indexOf("https://pay/x")).toBeLessThan(t.indexOf("https://e/p/abc-tudo"));
+  });
+
+  it("M1 avisa o começo do mês e a data do vencimento", () => {
+    const t = montarLembrete("M1", base);
+    expect(t).toContain("Começou novembro!");
+    expect(t).toContain("vence no dia 10/11");
+    expect(t).toContain("https://pay/x");
   });
 
   it("D+3 fala em atraso e lembra do pagamento na secretaria", () => {

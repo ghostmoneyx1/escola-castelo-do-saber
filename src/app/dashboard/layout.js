@@ -2,6 +2,7 @@
 
 import { SidebarProvider, useSidebar } from "@/components/layout/sidebar-context";
 import { Sidebar } from "@/components/layout/sidebar";
+import { WhatsappRadar } from "@/components/layout/whatsapp-radar";
 import { cn } from "@/lib/utils";
 
 function DashboardContent({ children }) {
@@ -20,6 +21,7 @@ function DashboardContent({ children }) {
         )}
       >
         <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-[1440px]">
+          <WhatsappRadar />
           {children}
         </div>
       </main>

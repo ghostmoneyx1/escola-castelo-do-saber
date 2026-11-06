@@ -5,10 +5,19 @@ import { SCHOOL_NAME } from "@/lib/constants";
  * sai e o que ele diz. O disparo em si fica em `disparo-whatsapp.js`.
  */
 
-export const ESTAGIOS = ["D-1", "D0", "D+3"];
+// M1: aviso de início de mês (dia 1 do mês do vencimento); os outros têm
+// data fixa em relação ao vencimento.
+export const ESTAGIOS = ["M1", "D-1", "D0", "D+3"];
+const ESTAGIOS_FIXOS = ["D-1", "D0", "D+3"];
 
 // Dias entre o envio e o vencimento: D-1 sai na véspera, D+3 três dias depois.
 const DESLOCAMENTO = { "D-1": 1, D0: 0, "D+3": -3 };
+
+// O M1 sai no dia 1, mas com o teto diário de mensagens nem todo mundo cabe
+// num dia só: quem sobrou recebe nos dias seguintes, até o dia 5 e nunca a
+// menos de 3 dias do vencimento (aí o D-1 já cuida).
+const M1_ULTIMO_DIA = 5;
+const M1_FOLGA_MINIMA = 3;
 
 const FUSO = "America/Bahia";
 
@@ -25,14 +34,21 @@ function somarDias(dataIso, dias) {
 
 /** Vencimento que cada estágio procura hoje: { "D-1": "2026-11-10", ... }. */
 export function vencimentosDoDia(hoje) {
-  return Object.fromEntries(ESTAGIOS.map(e => [e, somarDias(hoje, DESLOCAMENTO[e])]));
+  return Object.fromEntries(ESTAGIOS_FIXOS.map(e => [e, somarDias(hoje, DESLOCAMENTO[e])]));
 }
 
 /** Estágio de uma parcela hoje, ou null se ela não recebe aviso hoje. */
 export function estagioDaParcela(vencimento, hoje) {
   if (!vencimento) return null;
+  const venc = String(vencimento).slice(0, 10);
   const alvo = vencimentosDoDia(hoje);
-  return ESTAGIOS.find(e => alvo[e] === String(vencimento).slice(0, 10)) || null;
+  const fixo = ESTAGIOS_FIXOS.find(e => alvo[e] === venc);
+  if (fixo) return fixo;
+
+  const mesmoMes = venc.slice(0, 7) === hoje.slice(0, 7);
+  const diaHoje = Number(hoje.slice(8, 10));
+  if (mesmoMes && diaHoje <= M1_ULTIMO_DIA && somarDias(hoje, M1_FOLGA_MINIMA) <= venc) return "M1";
+  return null;
 }
 
 function primeiroNome(nome) {
@@ -69,6 +85,7 @@ export function montarLembrete(estagio, { aluno, responsavel, parcela, link, tud
   const ref = `a mensalidade de *${aluno}* de ${parcela.mes}${valor}`;
 
   const corpo = {
+    M1: `Começou ${parcela.mes.toLowerCase()}! ${ref.charAt(0).toUpperCase()}${ref.slice(1)} vence no dia ${fmtData(parcela.vencimento)}. Se preferir, já dá para adiantar o pagamento.`,
     "D-1": `Passando para lembrar que ${ref} vence amanhã, ${fmtData(parcela.vencimento)}.`,
     D0: `Lembrete: ${ref} vence hoje, ${fmtData(parcela.vencimento)}.`,
     "D+3": `${ref.charAt(0).toUpperCase()}${ref.slice(1)}, vencida em ${fmtData(parcela.vencimento)}, ainda consta em aberto no nosso sistema.`,
