@@ -77,3 +77,28 @@ export async function enviarLote(cfg, { batchId, mensagens }) {
 export async function statusLote(cfg, batchId) {
   return chamar(cfg, "GET", `/messages/batch/${encodeURIComponent(batchId)}`);
 }
+
+/** Dados da sessão: status, número conectado, nome no WhatsApp, último erro. */
+export async function dadosSessao(cfg) {
+  return chamar(cfg, "GET", "");
+}
+
+export async function ligarSessao(cfg) {
+  return chamar(cfg, "POST", "/start");
+}
+
+/** QR do pareamento (data URL) quando a sessão está em `qr_ready`. */
+export async function qrSessao(cfg) {
+  const r = await chamar(cfg, "GET", "/qr");
+  return r?.qrCode || null;
+}
+
+/** Código de 8 letras pra "Conectar com número de telefone" (expira rápido). */
+export async function codigoPareamento(cfg, numero) {
+  const r = await chamar(cfg, "POST", "/pairing-code", { phoneNumber: numero });
+  return r?.code || r?.pairingCode || null;
+}
+
+export async function enviarTexto(cfg, { chatId, texto }) {
+  return chamar(cfg, "POST", "/messages/send-text", { chatId, text: texto });
+}
