@@ -29,12 +29,13 @@ const STATUS_MENSAGEM = {
 const MODELOS = [
   { id: "simples", nome: "Teste simples" },
   { id: "M1", nome: "Início do mês (dia 1)" },
-  { id: "D-1", nome: "Véspera (D-1)" },
   { id: "D0", nome: "Vence hoje (D0)" },
-  { id: "D+3", nome: "Atrasada (D+3)" },
+  { id: "D+1", nome: "1 dia de atraso" },
+  { id: "D+2", nome: "2 dias de atraso" },
+  { id: "D+3", nome: "3 dias de atraso" },
 ];
 
-const ESTAGIO_NOME = { M1: "Início do mês", "D-1": "Véspera", D0: "Vence hoje", "D+3": "Atrasada" };
+const ESTAGIO_NOME = { M1: "Início do mês", "D-1": "Véspera", D0: "Vence hoje", "D+1": "Atraso 1 dia", "D+2": "Atraso 2 dias", "D+3": "Atraso 3 dias" };
 
 function Etiqueta({ mapa, valor }) {
   const s = mapa[valor] || { texto: valor || "—", classe: "bg-muted text-muted-foreground border-border" };
@@ -337,7 +338,7 @@ export function WhatsappClient({ mensagens, erroMensagens, configurado, ativo, r
             <p className="font-semibold text-amber-800">Envio automático em simulação — nenhum aviso sai para os pais</p>
           )}
           <p className="text-muted-foreground mt-1">
-            Avisos no dia 1 do mês, na véspera (D-1), no dia (D0) e 3 dias depois (D+3), de {ritmo.horaInicio}h às {ritmo.horaFim}h, em
+            Avisos no dia 1 do mês, no dia do vencimento e nos 3 dias seguintes de atraso, de {ritmo.horaInicio}h às {ritmo.horaFim}h, em
             rodadas de até {ritmo.porRodada} mensagens por hora e no máximo {ritmo.porDia} por dia.
             {!ativo && " Em simulação, cada aviso que sairia fica registrado abaixo como “Simulado”."}
           </p>

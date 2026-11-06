@@ -312,14 +312,14 @@ CREATE TRIGGER infantil_evaluations_updated_at
 -- ============================================================
 -- Cobrança automática por WhatsApp (OpenWA)
 -- ============================================================
--- Uma linha por aviso de cobrança (parcela × estágio M1 / D-1 / D0 / D+3).
+-- Uma linha por aviso de cobrança (parcela × estágio M1 / D0 / D+1 / D+2 / D+3; D-1 é legado).
 -- O cron grava antes de mandar pro OpenWA: é o que impede o mesmo aviso
 -- de sair duas vezes e o rastro quando um pai diz "não recebi".
 CREATE TABLE IF NOT EXISTS whatsapp_messages (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   installment_id UUID NOT NULL REFERENCES installments(id) ON DELETE CASCADE,
   student_id     UUID REFERENCES students(id) ON DELETE SET NULL,
-  stage          TEXT NOT NULL CHECK (stage IN ('M1', 'D-1', 'D0', 'D+3')),
+  stage          TEXT NOT NULL CHECK (stage IN ('M1', 'D-1', 'D0', 'D+1', 'D+2', 'D+3')),
   phone          TEXT,
   body           TEXT NOT NULL,
   -- simulado: interruptor desligado, só registra o que sairia

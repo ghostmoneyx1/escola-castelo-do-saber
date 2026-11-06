@@ -5,19 +5,20 @@ import { SCHOOL_NAME } from "@/lib/constants";
  * sai e o que ele diz. O disparo em si fica em `disparo-whatsapp.js`.
  */
 
-// M1: aviso de início de mês (dia 1 do mês do vencimento); os outros têm
-// data fixa em relação ao vencimento.
-export const ESTAGIOS = ["M1", "D-1", "D0", "D+3"];
-const ESTAGIOS_FIXOS = ["D-1", "D0", "D+3"];
+// Cadência aprovada pela escola (06/11/2026): dia 1 do mês (M1), dia do
+// vencimento (D0) e os três dias seguintes (D+1, D+2, D+3). Os D têm data
+// fixa em relação ao vencimento.
+export const ESTAGIOS = ["M1", "D0", "D+1", "D+2", "D+3"];
+const ESTAGIOS_FIXOS = ["D0", "D+1", "D+2", "D+3"];
 
-// Dias entre o envio e o vencimento: D-1 sai na véspera, D+3 três dias depois.
-const DESLOCAMENTO = { "D-1": 1, D0: 0, "D+3": -3 };
+// Dias entre o envio e o vencimento (negativo = depois do vencimento).
+const DESLOCAMENTO = { D0: 0, "D+1": -1, "D+2": -2, "D+3": -3 };
 
 // O M1 sai no dia 1, mas com o teto diário de mensagens nem todo mundo cabe
-// num dia só: quem sobrou recebe nos dias seguintes, até o dia 5 e nunca a
-// menos de 3 dias do vencimento (aí o D-1 já cuida).
+// num dia só: quem sobrou recebe nos dias seguintes, até o dia 5, e nunca no
+// próprio dia do vencimento (aí é o D0).
 const M1_ULTIMO_DIA = 5;
-const M1_FOLGA_MINIMA = 3;
+const M1_FOLGA_MINIMA = 1;
 
 const FUSO = "America/Bahia";
 
@@ -110,6 +111,8 @@ export function montarLembrete(estagio, { aluno, responsavel, parcela, link, tud
     D0: `Lembrete: ${ref} vence hoje, ${fmtData(parcela.vencimento)}.`,
     // Só no "Cobrar" manual: a vencer, mas sem ser véspera nem dia.
     lembrete: `Passando para lembrar que ${ref} vence no dia ${fmtData(parcela.vencimento)}.`,
+    "D+1": `${ref.charAt(0).toUpperCase()}${ref.slice(1)}, que venceu ontem (${fmtData(parcela.vencimento)}), ainda não consta como paga.`,
+    "D+2": `Ainda não identificamos o pagamento d${ref.slice(1)}, vencida em ${fmtData(parcela.vencimento)}.`,
     "D+3": `${ref.charAt(0).toUpperCase()}${ref.slice(1)}, vencida em ${fmtData(parcela.vencimento)}, ainda consta em aberto no nosso sistema.`,
   }[estagio];
 
@@ -118,7 +121,7 @@ export function montarLembrete(estagio, { aluno, responsavel, parcela, link, tud
     linhas.push(`Há ${tudo.meses} mensalidades em aberto (${fmtMoeda(tudo.total)}). Para ver todas e pagar de uma vez:`, tudo.link, "");
   }
   linhas.push(
-    estagio === "D+3"
+    estagio.startsWith("D+")
       ? "Se já pagou na secretaria, pode desconsiderar. Qualquer dúvida, fale com a secretaria."
       : "Se já pagou, pode desconsiderar."
   );
@@ -139,7 +142,12 @@ export function montarCobrancaManual(aluno, { baseUrl, hoje = hojeNaEscola() }) 
   const parcela = aluno.pendentes.find(p => p.situacao === "Em atraso") || aluno.pendentes[0];
   const venc = String(parcela.vencimento).slice(0, 10);
   const estagio =
-    venc < hoje ? "D+3" : venc === hoje ? "D0" : venc === somarDias(hoje, 1) ? "D-1" : "lembrete";
+    venc <= somarDias(hoje, -3) ? "D+3"
+      : venc === somarDias(hoje, -2) ? "D+2"
+        : venc === somarDias(hoje, -1) ? "D+1"
+          : venc === hoje ? "D0"
+            : venc === somarDias(hoje, 1) ? "D-1"
+              : "lembrete";
   return montarLembrete(estagio, {
     aluno: aluno.aluno,
     responsavel: aluno.responsavel,
