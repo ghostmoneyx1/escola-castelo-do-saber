@@ -131,7 +131,8 @@ chama; os helpers puros (situação, WhatsApp, código) em `parcelas.js`.
 
 **Secretaria.** `/dashboard/cobranca` (Server Component → `obterCobranca()`)
 lista contratos abertos do ano, totais, e o botão **"Cobrar"** que abre
-`wa.me` com a mensagem de `src/lib/mensalidades/whatsapp.js`. Telefone de
+`wa.me` com `montarCobrancaManual` (`lembretes.js`): mesmo texto e links
+curtos `/p/…` do aviso automático, pela atrasada mais antiga ou a próxima a vencer. Telefone de
 10 dígitos ganha o `9` e a flag `telefoneSuspeito`. A ficha do aluno renderiza
 `<SituacaoFinanceira studentId={...} />` (`/api/mensalidades/aluno?id=`).
 Dinheiro em espécie continua sendo baixado à mão no Financeiro/contrato.

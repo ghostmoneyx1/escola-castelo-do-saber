@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { carregarAlunos } from "./consultas";
-import { estagioDaParcela, hojeNaEscola, montarLembrete } from "./lembretes";
-import { linkPagarTudo } from "./parcelas";
+import { estagioDaParcela, hojeNaEscola, linksDoAviso, montarLembrete } from "./lembretes";
 import {
   resolverChatId, enviarLote, statusLote, statusSessao, LOTE_MAX,
 } from "@/lib/openwa/client";
@@ -53,17 +52,12 @@ export function selecionarAvisos(alunos, { hoje, baseUrl }) {
       const estagio = estagioDaParcela(p.vencimento, hoje);
       if (!estagio) continue;
 
-      // Link curto: o da InfinitePay tem ~470 caracteres e vira um bloco no WhatsApp.
-      const link = `${baseUrl}/p/${a.codigo}-${p.mesNumero}`;
-      const tudo = a.pagarTudo
-        ? { meses: a.pagarTudo.meses, total: a.pagarTudo.total, link: linkPagarTudo(a.codigo, baseUrl) }
-        : null;
       const aviso = {
         installment_id: p.id,
         student_id: a.id,
         stage: estagio,
         phone: a.whatsapp,
-        body: montarLembrete(estagio, { aluno: a.aluno, responsavel: a.responsavel, parcela: p, link, tudo }),
+        body: montarLembrete(estagio, { aluno: a.aluno, responsavel: a.responsavel, parcela: p, ...linksDoAviso(a, p, baseUrl) }),
         status: "pronto",
         error: null,
       };

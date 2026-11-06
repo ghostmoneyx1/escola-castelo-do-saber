@@ -51,6 +51,26 @@ export function estagioDaParcela(vencimento, hoje) {
   return null;
 }
 
+/** Link curto da parcela: /p/<codigo>-<mês>. O da InfinitePay tem ~470 caracteres. */
+export function linkDaParcela(codigo, mesNumero, baseUrl = "") {
+  return `${baseUrl}/p/${codigo}-${mesNumero}`;
+}
+
+/** Link curto pra consulta do aluno com as mensalidades devidas já marcadas. */
+export function linkPagarTudo(codigo, baseUrl = "") {
+  return `${baseUrl}/p/${codigo}-tudo`;
+}
+
+/** `link` e `tudo` do aviso de uma parcela, no formato de `montarLembrete`. */
+export function linksDoAviso(aluno, parcela, baseUrl) {
+  return {
+    link: linkDaParcela(aluno.codigo, parcela.mesNumero, baseUrl),
+    tudo: aluno.pagarTudo
+      ? { meses: aluno.pagarTudo.meses, total: aluno.pagarTudo.total, link: linkPagarTudo(aluno.codigo, baseUrl) }
+      : null,
+  };
+}
+
 function primeiroNome(nome) {
   return String(nome || "").trim().split(/\s+/)[0] || "";
 }
@@ -88,6 +108,8 @@ export function montarLembrete(estagio, { aluno, responsavel, parcela, link, tud
     M1: `Começou ${parcela.mes.toLowerCase()}! ${ref.charAt(0).toUpperCase()}${ref.slice(1)} vence no dia ${fmtData(parcela.vencimento)}. Se preferir, já dá para adiantar o pagamento.`,
     "D-1": `Passando para lembrar que ${ref} vence amanhã, ${fmtData(parcela.vencimento)}.`,
     D0: `Lembrete: ${ref} vence hoje, ${fmtData(parcela.vencimento)}.`,
+    // Só no "Cobrar" manual: a vencer, mas sem ser véspera nem dia.
+    lembrete: `Passando para lembrar que ${ref} vence no dia ${fmtData(parcela.vencimento)}.`,
     "D+3": `${ref.charAt(0).toUpperCase()}${ref.slice(1)}, vencida em ${fmtData(parcela.vencimento)}, ainda consta em aberto no nosso sistema.`,
   }[estagio];
 
@@ -102,4 +124,26 @@ export function montarLembrete(estagio, { aluno, responsavel, parcela, link, tud
   );
   linhas.push(`— ${SCHOOL_NAME}`);
   return linhas.join("\n");
+}
+
+/**
+ * Mensagem do botão "Cobrar" (secretaria manda pelo próprio WhatsApp): o
+ * mesmo texto e os mesmos links curtos do aviso automático, escolhendo pela
+ * parcela que mais importa — a atrasada mais antiga, senão a próxima a vencer.
+ */
+export function montarCobrancaManual(aluno, { baseUrl, hoje = hojeNaEscola() }) {
+  if (!aluno.pendentes.length) {
+    const nome = primeiroNome(aluno.responsavel);
+    return `${nome ? `Olá, ${nome}!` : "Olá!"} Passando para confirmar que as mensalidades de *${aluno.aluno}* estão todas em dia. Obrigado!\n— ${SCHOOL_NAME}`;
+  }
+  const parcela = aluno.pendentes.find(p => p.situacao === "Em atraso") || aluno.pendentes[0];
+  const venc = String(parcela.vencimento).slice(0, 10);
+  const estagio =
+    venc < hoje ? "D+3" : venc === hoje ? "D0" : venc === somarDias(hoje, 1) ? "D-1" : "lembrete";
+  return montarLembrete(estagio, {
+    aluno: aluno.aluno,
+    responsavel: aluno.responsavel,
+    parcela,
+    ...linksDoAviso(aluno, parcela, baseUrl),
+  });
 }
