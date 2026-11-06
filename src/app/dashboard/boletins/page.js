@@ -43,9 +43,6 @@ import { UNIT_LABELS } from "@/lib/constants";
 import { isInfantil } from "@/lib/boletim-infantil";
 import { BoletimInfantil } from "@/components/boletins/boletim-infantil";
 
-// Bimestre ativo atual para a Fase 1 (Bimestres menores que este ficam trancados)
-const ATUAL_BIMESTRE = 2;
-
 export default function BoletinsPage() {
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -297,18 +294,12 @@ export default function BoletinsPage() {
                         {[1, 2, 3, 4].map((u) => {
                           const score = getScore(subject.id, u);
                           const isCurrentUnit = String(u) === selectedUnit;
-                          const isLocked = u < ATUAL_BIMESTRE;
                           return (
                             <TableCell key={u} className={`px-5 py-3.5 text-center ${isCurrentUnit ? "bg-blue-50/40" : ""}`}>
                               <button
-                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm ${isLocked ? "cursor-not-allowed opacity-70" : "hover:bg-gray-100 transition-colors"}`}
-                                disabled={isLocked}
-                                title={isLocked ? "Bimestre Trancado" : "Editar Nota"}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm hover:bg-gray-100 transition-colors"
+                                title="Editar Nota"
                                 onClick={() => {
-                                  if (isLocked) {
-                                    alert("Este bimestre já foi encerrado e suas notas estão trancadas.");
-                                    return;
-                                  }
                                   setEditScore(score != null ? String(score) : "");
                                   setEditDialog({
                                     open: true,
@@ -323,7 +314,7 @@ export default function BoletinsPage() {
                                 ) : (
                                   <span className="text-muted-foreground">—</span>
                                 )}
-                                {!isLocked && <Pencil className="h-3 w-3 text-muted-foreground no-print" />}
+                                <Pencil className="h-3 w-3 text-muted-foreground no-print" />
                               </button>
                             </TableCell>
                           );
