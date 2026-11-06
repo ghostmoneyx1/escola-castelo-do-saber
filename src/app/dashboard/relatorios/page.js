@@ -116,7 +116,7 @@ export default function RelatoriosPage() {
 
     const [studentsRes, classesRes, paymentsRes, enrollmentsRes] = await Promise.all([
       supabase.from("students").select("class_id, status, enrollment_type, uses_transport, created_at"),
-      supabase.from("classes").select("*, units(name)").eq("is_active", true).order("grade"),
+      supabase.from("classes").select("*, units(name)").eq("is_active", true).eq("year", new Date().getFullYear()).order("grade"),
       supabase.from("payments").select("student_id, status, amount, reference_month, reference_year, created_at"),
       supabase.from("enrollments").select("status, created_at").eq("year", new Date().getFullYear()),
     ]);

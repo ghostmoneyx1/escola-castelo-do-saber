@@ -25,7 +25,7 @@ import {
   Bus,
 } from "lucide-react";
 import Link from "next/link";
-import { GENDERS, RELATIONSHIPS, ENROLLMENT_TYPES } from "@/lib/constants";
+import { GENDERS, RELATIONSHIPS, ANO_LETIVO_ATUAL, tiposDeMatricula } from "@/lib/constants";
 
 const emptyGuardian = {
   name: "",
@@ -80,7 +80,7 @@ export default function NovoAlunoPage() {
     birth_certificate_number: "",
     gender: "",
     birthplace: "",
-    enrollment_type: "Particular", // default
+    enrollment_type: "",
     uses_transport: false,
     observations: "",
   });
@@ -135,7 +135,7 @@ export default function NovoAlunoPage() {
         birth_certificate_number: student.birth_certificate_number || null,
         gender: student.gender || null,
         birthplace: student.birthplace || null,
-        enrollment_type: student.enrollment_type || "Particular",
+        enrollment_type: student.enrollment_type || null,
         uses_transport: student.uses_transport,
         observations: student.observations || null,
         status: "Ativo",
@@ -276,7 +276,7 @@ export default function NovoAlunoPage() {
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ENROLLMENT_TYPES.map((t) => (
+                  {tiposDeMatricula(ANO_LETIVO_ATUAL).map((t) => (
                     <SelectItem key={t} value={t}>
                       {t}
                     </SelectItem>

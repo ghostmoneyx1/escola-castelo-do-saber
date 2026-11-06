@@ -33,7 +33,7 @@ CREATE TABLE students (
   gender TEXT CHECK (gender IN ('Masculino', 'Feminino', 'Outro')),
   birthplace TEXT,
   previous_school TEXT,
-  enrollment_type TEXT CHECK (enrollment_type IS NULL OR enrollment_type IN ('Particular', 'Integral', 'Fundamental', 'Projeto')),
+  enrollment_type TEXT CHECK (enrollment_type IS NULL OR enrollment_type IN ('Particular', 'Integral', 'Fundamental', 'Projeto', 'Infantil', 'Jornada Ampliada', 'Jornada Regular')),
   uses_transport BOOLEAN DEFAULT false,
   status TEXT NOT NULL DEFAULT 'Ativo' CHECK (status IN ('Ativo', 'Pendente', 'Inativo', 'Transferido')),
   class_id UUID REFERENCES classes(id) ON DELETE SET NULL,
@@ -139,8 +139,13 @@ CREATE TABLE enrollments (
   year INTEGER NOT NULL,
   enrollment_date DATE NOT NULL DEFAULT CURRENT_DATE,
   status TEXT NOT NULL DEFAULT 'Ativa' CHECK (status IN ('Ativa', 'Cancelada', 'Transferida')),
+  -- Tipo daquele ano (2027 mudou as opções); students.enrollment_type é o "de agora".
+  enrollment_type TEXT CHECK (enrollment_type IS NULL OR enrollment_type IN ('Particular', 'Integral', 'Fundamental', 'Projeto', 'Infantil', 'Jornada Ampliada', 'Jornada Regular')),
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS enrollments_one_active_per_year_idx
+  ON enrollments (student_id, year) WHERE status = 'Ativa';
 
 -- Relatórios trimestrais (boletim descritivo por aluno/trimestre)
 CREATE TABLE quarterly_reports (

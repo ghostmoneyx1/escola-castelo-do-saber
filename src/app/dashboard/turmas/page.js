@@ -1,23 +1,27 @@
 import { createClient } from "@/lib/supabase/server";
+import { anoLetivo } from "@/lib/constants";
 import TurmasClient from "./turmas-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function TurmasPage() {
+export default async function TurmasPage({ searchParams }) {
+  const ano = anoLetivo(searchParams?.ano);
   const supabase = await createClient();
-  const [classesRes, unitsRes, studentsRes] = await Promise.all([
-    supabase.from("classes").select("*").eq("is_active", true).order("grade"),
+  const [classesRes, unitsRes, matriculasRes] = await Promise.all([
+    supabase.from("classes").select("*").eq("is_active", true).eq("year", ano).order("grade"),
     supabase.from("units").select("*"),
-    supabase.from("students").select("class_id").eq("status", "Ativo"),
+    supabase.from("enrollments").select("class_id, students(status)").eq("year", ano).eq("status", "Ativa"),
   ]);
 
   const studentCounts = {};
-  (studentsRes.data || []).forEach((s) => {
-    if (s.class_id) studentCounts[s.class_id] = (studentCounts[s.class_id] || 0) + 1;
+  (matriculasRes.data || []).forEach((m) => {
+    if (m.class_id && m.students?.status === "Ativo") studentCounts[m.class_id] = (studentCounts[m.class_id] || 0) + 1;
   });
 
   return (
     <TurmasClient
+      key={ano}
+      ano={ano}
       initialClasses={classesRes.data || []}
       units={unitsRes.data || []}
       studentCounts={studentCounts}

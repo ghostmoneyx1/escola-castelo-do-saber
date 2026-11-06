@@ -47,6 +47,7 @@ import {
   Users,
 } from "lucide-react";
 import { SHIFTS } from "@/lib/constants";
+import { AnoLetivoSelect } from "@/components/shared/ano-letivo-select";
 import { StatusBadge } from "@/components/shared/status-badge";
 
 const GRADES = [
@@ -54,7 +55,7 @@ const GRADES = [
   "Projeto Pé na Escola",
 ];
 
-export default function TurmasClient({ initialClasses, units, studentCounts }) {
+export default function TurmasClient({ ano, initialClasses, units, studentCounts }) {
   const router = useRouter();
   const [dialog, setDialog] = useState({ open: false, editId: null });
   const [saving, setSaving] = useState(false);
@@ -88,7 +89,7 @@ export default function TurmasClient({ initialClasses, units, studentCounts }) {
           grade: form.grade,
           shift: form.shift,
           unit_id: form.unit_id,
-          year: new Date().getFullYear(),
+          year: ano,
         });
     }
     setDialog({ open: false, editId: null });
@@ -110,8 +111,9 @@ export default function TurmasClient({ initialClasses, units, studentCounts }) {
     <div>
       <PageHeader
         title="Turmas"
-        subtitle={`${initialClasses.length} turma${initialClasses.length !== 1 ? "s" : ""} ativa${initialClasses.length !== 1 ? "s" : ""}`}
+        subtitle={`${initialClasses.length} turma${initialClasses.length !== 1 ? "s" : ""} ativa${initialClasses.length !== 1 ? "s" : ""} em ${ano}`}
       >
+        <AnoLetivoSelect />
         <Button size="sm" onClick={openNew}>
           <Plus className="h-4 w-4 mr-1.5" />
           Nova Turma

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ENROLLMENT_TYPES, ENROLLMENT_TYPE_STYLES } from "@/lib/constants";
+import { ENROLLMENT_TYPE_STYLES, tiposDeMatricula } from "@/lib/constants";
+import { AnoLetivoSelect } from "@/components/shared/ano-letivo-select";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,7 +94,7 @@ function StatCard({ label, value, icon: Icon }) {
   );
 }
 
-export default function AlunosClient({ initialStudents }) {
+export default function AlunosClient({ ano, initialStudents, outrosAnos = [] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos os status");
@@ -117,6 +118,12 @@ export default function AlunosClient({ initialStudents }) {
     return list;
   }, [initialStudents, statusFilter, typeFilter, search]);
 
+  const deOutrosAnos = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return outrosAnos.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 20);
+  }, [outrosAnos, search]);
+
   const stats = useMemo(() => ({
     total: initialStudents.length,
     active: initialStudents.filter((s) => s.status === "Ativo").length,
@@ -136,7 +143,8 @@ export default function AlunosClient({ initialStudents }) {
 
   return (
     <div>
-      <PageHeader title="Alunos">
+      <PageHeader title="Alunos" subtitle={`Matriculados no ano letivo ${ano}`}>
+        <AnoLetivoSelect />
         <Button variant="outline" size="sm">
           <Download className="h-4 w-4 mr-1.5" />
           Exportar
@@ -178,7 +186,7 @@ export default function AlunosClient({ initialStudents }) {
           <SelectTrigger className="h-10 w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="Todos">Todos os tipos</SelectItem>
-            {ENROLLMENT_TYPES.map((t) => (
+            {tiposDeMatricula(ano).map((t) => (
               <SelectItem key={t} value={t}>{t}</SelectItem>
             ))}
           </SelectContent>
@@ -194,12 +202,16 @@ export default function AlunosClient({ initialStudents }) {
           <div className="p-6">
             <EmptyState
               icon={Users}
-              title="Nenhum aluno encontrado"
-              description="Cadastre novos alunos para começar"
+              title={initialStudents.length ? "Nenhum aluno encontrado" : `Nenhum aluno matriculado em ${ano}`}
+              description={
+                initialStudents.length
+                  ? "Ajuste a busca ou os filtros"
+                  : "Os alunos aparecem aqui depois da matrícula. Alunos de outros anos continuam no sistema: busque pelo nome para rematricular."
+              }
             >
-              <Button size="sm" onClick={() => router.push("/dashboard/alunos/novo")}>
+              <Button size="sm" onClick={() => router.push("/dashboard/matriculas/nova")}>
                 <UserPlus className="h-4 w-4 mr-1.5" />
-                Novo Aluno
+                Nova Matrícula
               </Button>
             </EmptyState>
           </div>
@@ -291,6 +303,32 @@ export default function AlunosClient({ initialStudents }) {
           </>
         )}
       </div>
+
+      {deOutrosAnos.length > 0 && (
+        <div className="bg-white border border-border rounded-xl mt-4">
+          <div className="px-5 py-3 border-b border-border">
+            <p className="text-sm font-medium text-foreground">Em outros anos ({deOutrosAnos.length})</p>
+            <p className="text-xs text-muted-foreground">Cadastrados no sistema, sem matrícula em {ano}.</p>
+          </div>
+          {deOutrosAnos.map((s) => (
+            <div key={s.id} className="px-5 py-3 flex items-center justify-between gap-3 border-t border-border first:border-t-0">
+              <button
+                className="text-sm text-foreground hover:underline text-left"
+                onClick={() => router.push(`/dashboard/alunos/${s.id}`)}
+              >
+                {s.name}
+              </button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => router.push(`/dashboard/matriculas/nova?student_id=${s.id}&ano=${ano}`)}
+              >
+                Matricular em {ano}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <Dialog open={!!deleteDialog} onOpenChange={(v) => !deleting && !v && setDeleteDialog(null)}>
         <DialogContent>
