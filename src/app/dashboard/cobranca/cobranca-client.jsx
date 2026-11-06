@@ -16,7 +16,7 @@ import {
   Search, AlertTriangle, Clock, CheckCircle, MessageCircle, Copy, Check,
   QrCode, PhoneOff, Link2, Loader2,
 } from "lucide-react";
-import { montarMensagemCobranca, linkWhatsapp } from "@/lib/mensalidades/whatsapp";
+import { montarCobrancaManual, linkWhatsapp } from "@/lib/mensalidades/whatsapp";
 
 function fmt(v) {
   return Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
@@ -71,7 +71,7 @@ function AcoesAluno({ aluno, origem, onQr }) {
   const [copiado, setCopiado] = useState(false);
 
   const linkConsulta = origem ? `${origem}/mensalidades?a=${aluno.codigo}` : "";
-  const mensagem = montarMensagemCobranca(aluno, { linkConsulta });
+  const mensagem = montarCobrancaManual(aluno, { baseUrl: origem });
   const zap = linkWhatsapp(aluno.whatsapp, mensagem);
 
   async function copiarLink() {

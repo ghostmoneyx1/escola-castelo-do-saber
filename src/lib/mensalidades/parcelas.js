@@ -137,10 +137,8 @@ export function montarAluno({ student, contrato, responsavel, telefones = [], pa
   };
 }
 
-/** Link curto pra consulta do aluno com as mensalidades devidas já marcadas. */
-export function linkPagarTudo(codigo, baseUrl = "") {
-  return `${baseUrl}/p/${codigo}-tudo`;
-}
+// Mora em lembretes.js porque o navegador também monta a mensagem (e aqui tem node:crypto).
+export { linkPagarTudo } from "./lembretes";
 
 /**
  * Formato devolvido pela rota pública — sem telefone nem ids. O `codigo` vai

@@ -6,7 +6,7 @@ import {
   Wallet, Loader2, MessageCircle, Copy, Check, AlertTriangle, CheckCircle2, ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { montarMensagemCobranca, linkWhatsapp } from "@/lib/mensalidades/whatsapp";
+import { montarCobrancaManual, linkWhatsapp } from "@/lib/mensalidades/whatsapp";
 
 function fmt(v) {
   return Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
@@ -95,7 +95,7 @@ export function SituacaoFinanceira({ studentId }) {
 
   const a = dados.aluno;
   const linkConsulta = origem ? `${origem}/mensalidades?a=${a.codigo}` : "";
-  const zap = linkWhatsapp(a.whatsapp, montarMensagemCobranca(a, { linkConsulta }));
+  const zap = linkWhatsapp(a.whatsapp, montarCobrancaManual(a, { baseUrl: origem }));
 
   async function copiarLink() {
     await navigator.clipboard.writeText(linkConsulta);

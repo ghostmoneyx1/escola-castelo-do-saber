@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { estagioDaParcela, hojeNaEscola, montarLembrete, vencimentosDoDia } from "./lembretes";
+import { estagioDaParcela, hojeNaEscola, montarCobrancaManual, montarLembrete, vencimentosDoDia } from "./lembretes";
 import { selecionarAvisos, dispararCobranca, conciliarLotes } from "./disparo-whatsapp";
 import * as consultas from "./consultas";
 import * as openwa from "@/lib/openwa/client";
@@ -142,6 +142,45 @@ describe("texto do aviso", () => {
     const t = montarLembrete("D+3", base);
     expect(t).toContain("vencida em 10/11");
     expect(t).toContain("pagou na secretaria");
+  });
+});
+
+describe("Cobrar manual (secretaria)", () => {
+  const baseUrl = "https://escola.test";
+  const hoje = "2026-11-06";
+
+  it("usa o mesmo texto e link curto do aviso automático", () => {
+    const a = aluno({ pendentes: [parcela("p1", "2026-11-07")] });
+    const t = montarCobrancaManual(a, { baseUrl, hoje });
+    const [linha] = selecionarAvisos([a], { hoje, baseUrl });
+    expect(t).toBe(linha.body);
+    expect(t).toContain(`${baseUrl}/p/abc123abc123-11`);
+    expect(t).not.toContain("infinitepay");
+  });
+
+  it("com atraso, cobra a atrasada mais antiga e leva o link de pagar tudo", () => {
+    const a = aluno({
+      pendentes: [
+        parcela("p10", "2026-10-10", { mes: "Outubro", mesNumero: 10, situacao: "Em atraso" }),
+        parcela("p11", "2026-11-10"),
+      ],
+      pagarTudo: { meses: 2, total: 660 },
+    });
+    const t = montarCobrancaManual(a, { baseUrl, hoje });
+    expect(t).toContain("de Outubro");
+    expect(t).toContain("vencida em 10/10");
+    expect(t).toContain(`${baseUrl}/p/abc123abc123-10`);
+    expect(t).toContain(`${baseUrl}/p/abc123abc123-tudo`);
+  });
+
+  it("a vencer fora da véspera fala a data, sem 'amanhã'", () => {
+    const t = montarCobrancaManual(aluno({ pendentes: [parcela("p1", "2026-11-10")] }), { baseUrl, hoje });
+    expect(t).toContain("vence no dia 10/11");
+    expect(t).not.toContain("amanhã");
+  });
+
+  it("sem pendência, confirma que está em dia", () => {
+    expect(montarCobrancaManual(aluno(), { baseUrl, hoje })).toContain("estão todas em dia");
   });
 });
 
