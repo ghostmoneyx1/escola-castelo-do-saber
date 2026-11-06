@@ -22,12 +22,13 @@ import {
   UserCheck,
 } from "lucide-react";
 import Link from "next/link";
-import { ENROLLMENT_TYPES } from "@/lib/constants";
+import { ANOS_LETIVOS, anoLetivo, tiposDeMatricula } from "@/lib/constants";
 
 function NovaMatriculaForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialStudentId = searchParams.get("student_id") || "";
+  const initialYear = anoLetivo(searchParams.get("ano"));
 
   const [saving, setSaving] = useState(false);
   const [classes, setClasses] = useState([]);
@@ -36,6 +37,7 @@ function NovaMatriculaForm() {
   const [error, setError] = useState("");
 
   const [form, setForm] = useState({
+    year: initialYear,
     student_id: initialStudentId,
     unit_id: "",
     class_id: "",
@@ -47,7 +49,7 @@ function NovaMatriculaForm() {
     async function loadOptions() {
       const supabase = createClient();
       const [classesRes, unitsRes, studentsRes] = await Promise.all([
-        supabase.from("classes").select("*").eq("is_active", true).order("grade"),
+        supabase.from("classes").select("*").eq("is_active", true).in("year", ANOS_LETIVOS).order("grade"),
         supabase.from("units").select("*").order("name"),
         supabase.from("students").select("id, name, cpf").eq("status", "Ativo").order("name"),
       ]);
@@ -90,25 +92,33 @@ function NovaMatriculaForm() {
       .from("enrollments")
       .select("id")
       .eq("student_id", form.student_id)
-      .eq("year", new Date().getFullYear())
+      .eq("year", form.year)
       .eq("status", "Ativa")
       .maybeSingle();
 
     if (existingEnrollment) {
-      setError("Este aluno já possui uma matrícula ativa para o ano letivo atual.");
+      setError(`Este aluno já possui uma matrícula ativa em ${form.year}.`);
       setSaving(false);
       return;
     }
 
-    // 1. Update the student record with academic fields
+    // Turma/tipo/unidade do cadastro são os "de agora" (chamada, boletim,
+    // documentos). Matrícula de um ano que ainda não começou não pode mexer
+    // neles, senão o aluno some das turmas do ano em curso; a virada de
+    // janeiro (cron) copia da matrícula pro cadastro.
+    const anoQueComecou = form.year <= new Date().getFullYear();
     const { error: studentError } = await supabase
       .from("students")
-      .update({
-        unit_id: form.unit_id,
-        class_id: form.class_id,
-        previous_school: form.previous_school || null,
-        enrollment_type: form.enrollment_type || null,
-      })
+      .update(
+        anoQueComecou
+          ? {
+              unit_id: form.unit_id,
+              class_id: form.class_id,
+              previous_school: form.previous_school || null,
+              enrollment_type: form.enrollment_type || null,
+            }
+          : { previous_school: form.previous_school || null }
+      )
       .eq("id", form.student_id);
 
     if (studentError) {
@@ -121,7 +131,8 @@ function NovaMatriculaForm() {
     const { error: enrollError } = await supabase.from("enrollments").insert({
       student_id: form.student_id,
       class_id: form.class_id,
-      year: new Date().getFullYear(),
+      year: form.year,
+      enrollment_type: form.enrollment_type || null,
       status: "Ativa",
     });
 
@@ -131,12 +142,13 @@ function NovaMatriculaForm() {
       return;
     }
 
-    router.push("/dashboard/matriculas");
+    router.push(`/dashboard/matriculas?ano=${form.year}`);
   }
 
+  const classesDoAno = classes.filter((c) => c.year === form.year);
   const filteredClasses = form.unit_id
-    ? classes.filter((c) => c.unit_id === form.unit_id)
-    : classes;
+    ? classesDoAno.filter((c) => c.unit_id === form.unit_id)
+    : classesDoAno;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -182,6 +194,22 @@ function NovaMatriculaForm() {
           <h2 className="font-heading text-lg font-bold text-foreground">Alocação de Matrícula</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2 md:col-span-3">
+            <Label className="text-sm font-medium">Ano letivo *</Label>
+            <Select
+              value={String(form.year)}
+              onValueChange={(v) => setForm((prev) => ({ ...prev, year: Number(v), class_id: "", enrollment_type: "" }))}
+            >
+              <SelectTrigger className="md:w-[200px]">
+                <SelectValue>{String(form.year)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {ANOS_LETIVOS.map((a) => (
+                  <SelectItem key={a} value={String(a)}>{String(a)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">Unidade *</Label>
             <Select
@@ -240,7 +268,7 @@ function NovaMatriculaForm() {
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
-                {ENROLLMENT_TYPES.map((t) => (
+                {tiposDeMatricula(form.year).map((t) => (
                   <SelectItem key={t} value={t}>
                     {t}
                   </SelectItem>
@@ -289,7 +317,7 @@ export default function NovaMatriculaPage() {
     <div className="space-y-6 max-w-4xl">
       <PageHeader
         title="Nova Matrícula"
-        subtitle="Vincule um aluno a uma turma para o ano letivo atual"
+        subtitle="Vincule um aluno a uma turma do ano letivo escolhido"
       >
         <Button asChild variant="outline" size="sm">
           <Link href="/dashboard/matriculas">

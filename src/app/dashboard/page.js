@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { anoLetivo } from "@/lib/constants";
+import { AnoLetivoSelect } from "@/components/shared/ano-letivo-select";
 import { createClient } from "@/lib/supabase/client";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { PageHeader } from "@/components/shared/page-header";
@@ -118,6 +121,17 @@ function FinanceMiniCard({ icon: Icon, label, value, colorClass, loading }) {
 }
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <Dashboard />
+    </Suspense>
+  );
+}
+
+// Tudo filtrado pelo ano letivo: aluno "do ano" é quem tem matrícula nele.
+// Alunos de outros anos continuam no banco, só não entram na visão.
+function Dashboard() {
+  const ano = anoLetivo(useSearchParams().get("ano"));
   const [stats, setStats] = useState({
     totalStudents: 0,
     activeEnrollments: 0,
@@ -132,35 +146,40 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadDashboard() {
+      setLoading(true);
       const supabase = createClient();
 
-      const [studentsRes, enrollmentsRes, gradesRes, documentsRes, recentRes, paymentsRes] =
+      const [matriculasRes, gradesRes, documentsRes, paymentsRes] =
         await Promise.all([
-          supabase.from("students").select("id, created_at", { count: "exact" }),
           supabase
             .from("enrollments")
-            .select("*", { count: "exact", head: true })
-            .eq("status", "Ativa"),
-          supabase.from("grades").select("*", { count: "exact", head: true }),
-          supabase.from("documents").select("*", { count: "exact", head: true }),
+            .select("student_id, status, created_at, classes(name), students(id, name, status)")
+            .eq("year", ano)
+            .order("created_at", { ascending: false }),
+          supabase.from("grades").select("*", { count: "exact", head: true }).eq("year", ano),
           supabase
-            .from("students")
-            .select("id, name, status, classes(name)")
-            .order("created_at", { ascending: false })
-            .limit(5),
-          supabase.from("payments").select("status, amount, reference_month, reference_year"),
+            .from("documents")
+            .select("*", { count: "exact", head: true })
+            .gte("created_at", `${ano}-01-01`)
+            .lt("created_at", `${ano + 1}-01-01`),
+          supabase.from("payments").select("status, amount, reference_month, reference_year").eq("reference_year", ano),
         ]);
 
+      const matriculas = (matriculasRes.data || []).filter((m) => m.students);
+      const alunosDoAno = new Set(matriculas.map((m) => m.student_id));
+
       setStats({
-        totalStudents: studentsRes.count || 0,
-        activeEnrollments: enrollmentsRes.count || 0,
+        totalStudents: alunosDoAno.size,
+        activeEnrollments: matriculas.filter((m) => m.status === "Ativa").length,
         totalGrades: gradesRes.count || 0,
         totalDocuments: documentsRes.count || 0,
       });
 
-      setRecentStudents(recentRes.data || []);
+      setRecentStudents(
+        matriculas.slice(0, 5).map((m) => ({ ...m.students, classes: m.classes }))
+      );
 
-      const students = studentsRes.data || [];
+      const students = matriculas;
       const now = new Date();
       const trend = [];
       for (let i = 5; i >= 0; i--) {
@@ -194,28 +213,30 @@ export default function DashboardPage() {
     }
 
     loadDashboard();
-  }, []);
+  }, [ano]);
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
-        subtitle="Visão geral da sua escola"
-      />
+        subtitle={`Visão geral do ano letivo ${ano}`}
+      >
+        <AnoLetivoSelect />
+      </PageHeader>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <KPICard
           title="Total de Alunos"
           value={stats.totalStudents}
-          subtitle="cadastrados"
+          subtitle={`em ${ano}`}
           icon={Users}
           loading={loading}
         />
         <KPICard
           title="Matrículas Ativas"
           value={stats.activeEnrollments}
-          subtitle="no ano atual"
+          subtitle={`em ${ano}`}
           icon={ClipboardList}
           loading={loading}
         />

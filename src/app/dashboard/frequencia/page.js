@@ -59,6 +59,8 @@ export default function FrequenciaPage() {
         .from("classes")
         .select("*")
         .eq("is_active", true)
+        // Turmas do ano em curso; as do próximo ano letivo ainda não têm aula.
+        .eq("year", new Date().getFullYear())
         .order("grade");
       setClasses(data || []);
     }

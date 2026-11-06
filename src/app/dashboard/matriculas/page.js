@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { anoLetivo } from "@/lib/constants";
+import { AnoLetivoSelect } from "@/components/shared/ano-letivo-select";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -33,6 +36,15 @@ import {
 } from "lucide-react";
 
 export default function MatriculasPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+      <Matriculas />
+    </Suspense>
+  );
+}
+
+function Matriculas() {
+  const ano = anoLetivo(useSearchParams().get("ano"));
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -44,6 +56,7 @@ export default function MatriculasPage() {
       let query = supabase
         .from("enrollments")
         .select("*, students(name, cpf), classes(name, grade, shift)")
+        .eq("year", ano)
         .order("created_at", { ascending: false });
 
       if (statusFilter !== "Todos") {
@@ -66,7 +79,7 @@ export default function MatriculasPage() {
     setLoading(true);
     const t = setTimeout(load, 300);
     return () => clearTimeout(t);
-  }, [search, statusFilter]);
+  }, [search, statusFilter, ano]);
 
   return (
     <div className="space-y-6">
@@ -75,11 +88,12 @@ export default function MatriculasPage() {
         subtitle={
           loading
             ? "Carregando..."
-            : `${enrollments.length} matrícula${enrollments.length !== 1 ? "s" : ""}`
+            : `${enrollments.length} matrícula${enrollments.length !== 1 ? "s" : ""} em ${ano}`
         }
       >
+        <AnoLetivoSelect />
         <Button asChild size="sm" className="whitespace-nowrap">
-          <Link href="/dashboard/matriculas/nova">
+          <Link href={`/dashboard/matriculas/nova?ano=${ano}`}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Matrícula
           </Link>

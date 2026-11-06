@@ -5,6 +5,7 @@ import { anoAtual } from "@/lib/mensalidades/consultas";
 import {
   baseUrlPublica, listarParcelasParaLink, gerarLinksParaParcelas, contarParcelasSemLinkApi,
 } from "@/lib/infinitepay/links";
+import { sincronizarTurmaAtual } from "@/lib/matriculas/virada";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -17,6 +18,9 @@ const LOTE = 20;
  * Cron diário (vercel.json): toda parcela em aberto do ano sem link da API
  * ganha um. Cobre contrato importado, link que falhou na criação e parcela
  * editada à mão. Ninguém precisa clicar em nada.
+ *
+ * Aproveita a rodada diária pra virada do ano letivo: em janeiro, quem foi
+ * rematriculado passa a ter no cadastro a turma do ano novo.
  *
  * A Vercel manda `Authorization: Bearer <CRON_SECRET>`; sem isso, 401.
  */
@@ -48,6 +52,15 @@ export async function GET(req) {
   let loteAnterior = "";
   let listagemRepetida = false;
   let limiteAtingido = false;
+
+  // Separado dos links: falha aqui não pode impedir a geração de links.
+  let virada = null;
+  try {
+    virada = await sincronizarTurmaAtual(supabase, ano);
+  } catch (e) {
+    console.error("cron/links: virada do ano letivo", e);
+    virada = { erro: e.message };
+  }
 
   try {
     while (Date.now() - inicio < ORCAMENTO_MS) {
@@ -82,7 +95,7 @@ export async function GET(req) {
     if (listagemRepetida) console.error("cron/links: listagem repetida, parado por segurança");
     if (limiteAtingido) console.warn("cron/links: InfinitePay respondeu 429, resto fica pra próxima rodada");
 
-    return NextResponse.json({ ano, gerados, falhas: falhas.length, restantes, listagemRepetida, limiteAtingido });
+    return NextResponse.json({ ano, gerados, falhas: falhas.length, restantes, listagemRepetida, limiteAtingido, virada });
   } catch (e) {
     console.error("cron/links:", e);
     return NextResponse.json({ error: e.message, gerados }, { status: 500 });

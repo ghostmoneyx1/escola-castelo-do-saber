@@ -474,7 +474,7 @@ function UnitsTab() {
     const supabase = createClient();
     const [unitsRes, classesRes] = await Promise.all([
       supabase.from("units").select("*").order("name"),
-      supabase.from("classes").select("unit_id").eq("is_active", true),
+      supabase.from("classes").select("unit_id").eq("is_active", true).eq("year", new Date().getFullYear()),
     ]);
     setUnits(unitsRes.data || []);
     const counts = {};

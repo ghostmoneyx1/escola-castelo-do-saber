@@ -31,7 +31,8 @@ import Link from "next/link";
 import {
   GENDERS,
   STUDENT_STATUSES,
-  ENROLLMENT_TYPES,
+  ANO_LETIVO_ATUAL,
+  tiposDeMatricula,
   RELATIONSHIPS,
 } from "@/lib/constants";
 
@@ -64,7 +65,8 @@ export default function EditarAlunoPage() {
       const supabase = createClient();
       const [studentRes, classesRes, unitsRes, guardiansRes] = await Promise.all([
         supabase.from("students").select("*").eq("id", id).single(),
-        supabase.from("classes").select("*").eq("is_active", true).order("grade"),
+        // O cadastro guarda a turma "de agora": só turmas do ano em curso.
+        supabase.from("classes").select("*").eq("is_active", true).eq("year", new Date().getFullYear()).order("grade"),
         supabase.from("units").select("*").order("name"),
         supabase.from("student_guardians").select("*, guardians(*)").eq("student_id", id),
       ]);
@@ -151,6 +153,16 @@ export default function EditarAlunoPage() {
       setError("Erro ao atualizar: " + updateError.message);
       setSaving(false);
       return;
+    }
+
+    // As listas por ano leem turma e tipo da matrícula: mantém a do ano em curso igual ao cadastro.
+    if (student.class_id) {
+      await supabase
+        .from("enrollments")
+        .update({ class_id: student.class_id, enrollment_type: student.enrollment_type || null })
+        .eq("student_id", id)
+        .eq("year", new Date().getFullYear())
+        .eq("status", "Ativa");
     }
 
     // Salvar responsáveis
@@ -317,7 +329,7 @@ export default function EditarAlunoPage() {
               <Label className="text-sm font-medium">Tipo de Matrícula</Label>
               <Select value={student.enrollment_type || ""} onValueChange={(v) => updateStudent("enrollment_type", v)}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>{ENROLLMENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                <SelectContent>{[...new Set([...(student.enrollment_type ? [student.enrollment_type] : []), ...tiposDeMatricula(ANO_LETIVO_ATUAL)])].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-2">

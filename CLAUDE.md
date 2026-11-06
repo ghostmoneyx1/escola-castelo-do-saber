@@ -202,6 +202,28 @@ Não as altere nem derrube por aqui.
 - **Tipos de documento** vivem em dois lugares: `DOCUMENT_TYPES` (constants.js) e o CHECK de `documents.type` no schema. Novo tipo exige os dois + um `case` em `generate.js`.
 - Os arquivos do PDF são `.js` com JSX; o vitest só transforma `.jsx`. Para renderizar um PDF fora do Next (preview), use um config temporário com plugin `transformWithOxc(code, id, { lang: "jsx" })` para `src/**/*.js`.
 
+### Ano letivo (desde 06/11/2026, abertura de 2027)
+
+- **Aluno "de um ano" = tem matrícula (`enrollments`) naquele ano.** Ninguém é
+  apagado na virada; Dashboard, Alunos, Turmas e Matrículas abrem em
+  `ANO_LETIVO_ATUAL` (`constants.js`, trocar uma vez por ano) com seletor
+  `?ano=` (`AnoLetivoSelect`). Alunos de outros anos aparecem na busca de Alunos
+  com botão "Matricular em <ano>".
+- **Turma/tipo por ano ficam na matrícula** (`enrollments.class_id`,
+  `enrollments.enrollment_type`). `students.class_id/unit_id/enrollment_type` é
+  o "de agora" (chamada, boletim, documentos, Meu Turninho). Matrícula de ano
+  que ainda não começou **não** mexe no cadastro; o cron diário `/api/cron/links`
+  chama `sincronizarTurmaAtual` (`src/lib/matriculas/virada.js`, só ≥ 2027) e
+  copia da matrícula pro cadastro quando o ano começa.
+- **Tipos de matrícula:** 2026 = Particular/Integral/Fundamental/Projeto;
+  2027+ = Projeto/Infantil/Jornada Ampliada/Jornada Regular
+  (`tiposDeMatricula(ano)`). `ENROLLMENT_TYPES` = todos (filtros/relatórios).
+- Telas do dia a dia (frequência, editar aluno, relatórios, configurações)
+  listam só turmas de `year = ano corrente`; as 24 turmas de 2027 foram copiadas
+  vazias das de 2026 (`atualizacao-2026-11-06c-ano-letivo-2027.sql`).
+- **Pendente em jan/2027:** desativar as turmas de 2026 e decidir o que fazer
+  com quem não rematriculou (status do aluno).
+
 ## Design system — enforced
 
 `DESIGN_SYSTEM.md` is **not aspirational**, it lists concrete tokens and an explicit anti-pattern list. Notable hard rules:
