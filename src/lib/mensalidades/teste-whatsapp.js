@@ -19,7 +19,7 @@ export function normalizarNumero(bruto) {
 
 function vencimentoDoModelo(modelo, hoje) {
   const d = new Date(`${hoje}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + ({ "D-1": 1, D0: 0, "D+3": -3 }[modelo] ?? 0));
+  d.setUTCDate(d.getUTCDate() + ({ M1: 9, "D-1": 1, D0: 0, "D+3": -3 }[modelo] ?? 0));
   return d.toISOString().slice(0, 10);
 }
 

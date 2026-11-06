@@ -15,6 +15,7 @@ const STATUS_SESSAO = {
   initializing: { texto: "Ligando…", classe: "bg-muted text-muted-foreground border-border" },
   starting: { texto: "Ligando…", classe: "bg-muted text-muted-foreground border-border" },
   disconnected: { texto: "Desconectado", classe: "bg-red-50 text-red-700 border-red-200" },
+  failed: { texto: "Caiu", classe: "bg-red-50 text-red-700 border-red-200" },
 };
 
 const STATUS_MENSAGEM = {
@@ -27,12 +28,13 @@ const STATUS_MENSAGEM = {
 
 const MODELOS = [
   { id: "simples", nome: "Teste simples" },
+  { id: "M1", nome: "Início do mês (dia 1)" },
   { id: "D-1", nome: "Véspera (D-1)" },
   { id: "D0", nome: "Vence hoje (D0)" },
   { id: "D+3", nome: "Atrasada (D+3)" },
 ];
 
-const ESTAGIO_NOME = { "D-1": "Véspera", D0: "Vence hoje", "D+3": "Atrasada" };
+const ESTAGIO_NOME = { M1: "Início do mês", "D-1": "Véspera", D0: "Vence hoje", "D+3": "Atrasada" };
 
 function Etiqueta({ mapa, valor }) {
   const s = mapa[valor] || { texto: valor || "—", classe: "bg-muted text-muted-foreground border-border" };
@@ -182,7 +184,7 @@ function PainelSessao({ configurado }) {
             <div className="flex gap-2 mt-3 flex-wrap">
               <Input
                 className="w-56"
-                placeholder="71 98260-7878"
+                placeholder="71 98436-4817"
                 value={numeroPareamento}
                 onChange={e => setNumeroPareamento(e.target.value)}
               />
@@ -335,7 +337,7 @@ export function WhatsappClient({ mensagens, erroMensagens, configurado, ativo, r
             <p className="font-semibold text-amber-800">Envio automático em simulação — nenhum aviso sai para os pais</p>
           )}
           <p className="text-muted-foreground mt-1">
-            Avisos na véspera (D-1), no dia (D0) e 3 dias depois (D+3), de {ritmo.horaInicio}h às {ritmo.horaFim}h, em
+            Avisos no dia 1 do mês, na véspera (D-1), no dia (D0) e 3 dias depois (D+3), de {ritmo.horaInicio}h às {ritmo.horaFim}h, em
             rodadas de até {ritmo.porRodada} mensagens por hora e no máximo {ritmo.porDia} por dia.
             {!ativo && " Em simulação, cada aviso que sairia fica registrado abaixo como “Simulado”."}
           </p>

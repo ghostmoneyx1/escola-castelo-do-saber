@@ -20,12 +20,13 @@ describe("mensagemDeTeste", () => {
   const baseUrl = "https://www.escolacastelodosaber.net";
 
   it("sempre começa marcando que é teste", () => {
-    for (const m of ["simples", "D-1", "D0", "D+3"]) {
+    for (const m of ["simples", "M1", "D-1", "D0", "D+3"]) {
       expect(mensagemDeTeste(m, { baseUrl, agora })).toMatch(/^\[TESTE — não é cobrança real\]/);
     }
   });
 
   it("usa o mesmo texto do aviso real, com vencimento coerente com o estágio", () => {
+    expect(mensagemDeTeste("M1", { baseUrl, agora })).toContain("vence no dia 18/11");
     expect(mensagemDeTeste("D-1", { baseUrl, agora })).toContain("vence amanhã, 10/11");
     expect(mensagemDeTeste("D0", { baseUrl, agora })).toContain("vence hoje, 09/11");
     const d3 = mensagemDeTeste("D+3", { baseUrl, agora });

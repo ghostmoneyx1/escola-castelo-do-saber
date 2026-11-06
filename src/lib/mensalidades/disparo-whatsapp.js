@@ -28,9 +28,10 @@ const LOTE_TRAVADO_MS = 24 * 60 * 60 * 1000;
 export const RITMO_PADRAO = { porRodada: 6, porDia: 30, horaInicio: 8, horaFim: 18 };
 
 // Quando o teto do dia não dá pra todos, quem vence hoje e quem está atrasado
-// vêm antes do lembrete de véspera (que vira o aviso "vence hoje" amanhã); no
-// mesmo estágio, quem ainda não recebeu nada daquela parcela vai primeiro.
-const PRIORIDADE = { D0: 0, "D+3": 1, "D-1": 2 };
+// vêm antes do lembrete de véspera (que vira o aviso "vence hoje" amanhã), e o
+// de início de mês por último (ele tem mais dias pra sair); no mesmo estágio,
+// quem ainda não recebeu nada daquela parcela vai primeiro.
+const PRIORIDADE = { D0: 0, "D+3": 1, "D-1": 2, M1: 3 };
 
 const FUSO_ESCOLA = "America/Bahia";
 

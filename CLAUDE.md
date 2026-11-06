@@ -64,7 +64,7 @@ src/app/
     infinitepay/links/     # POST gera links de pagamento (auth); GET ?teste=1 link de R$1
     infinitepay/webhook/   # POST notificação da InfinitePay (token na query + payment_check)
     cron/links/            # GET diário (vercel.json, 12:00 UTC) gera link pra parcela sem link da API
-    cron/cobranca-whatsapp/ # GET rodada de avisos D-1/D0/D+3 (VPS de hora em hora + Vercel 12:15 UTC)
+    cron/cobranca-whatsapp/ # GET rodada de avisos M1/D-1/D0/D+3 (VPS de hora em hora + Vercel 12:15 UTC)
     relatorio/gerar-token/ # mints opaque token for parent access
     relatorio/submit/      # save quarterly report
 ```
@@ -137,7 +137,8 @@ lista contratos abertos do ano, totais, e o botão **"Cobrar"** que abre
 Dinheiro em espécie continua sendo baixado à mão no Financeiro/contrato.
 
 **Cobrança automática por WhatsApp** (`/api/cron/cobranca-whatsapp`). Avisos
-D-1, D0 e D+3 de cada parcela em aberto de contrato Aberto, enviados pelo
+M1 (dia 1 do mês do vencimento; quem não coube no teto sai até o dia 5, nunca
+a menos de 3 dias do vencimento), D-1, D0 e D+3 de cada parcela em aberto de contrato Aberto, enviados pelo
 **OpenWA** (API não oficial, risco de ban — por isso chip dedicado e envio
 **em rodadas**). A Vercel Hobby só agenda cron 1x/dia (12:15 UTC), então a
 VPS chama a rota de hora em hora, 9h07–17h07 de Salvador (crontab do root,
@@ -145,7 +146,11 @@ VPS chama a rota de hora em hora, 9h07–17h07 de Salvador (crontab do root,
 Cada rodada manda no máximo `WHATSAPP_POR_RODADA` (padrão 6) com 45–62 s entre
 mensagens, respeita o teto `WHATSAPP_POR_DIA` (padrão 30), só envia entre 8h e
 18h e espera a rodada anterior terminar. Quando o teto não dá pra todos, vai
-primeiro D0, depois D+3, por último D-1.
+primeiro D0, depois D+3, D-1 e por último M1.
+**Radar:** `src/components/layout/whatsapp-radar.jsx` (no layout do dashboard)
+consulta `/api/whatsapp/sessao` a cada 2 min e mostra faixa vermelha quando o
+chip não está `ready`; reconexão/troca de número pelo QR em
+`/dashboard/cobranca/whatsapp`.
 O OpenWA roda na VPS da Casa da Chita (`/opt/openwa`, sessão própria da
 escola) e é exposto só em `https://wa.escolacastelodosaber.net/api/sessions/*`
 (Traefik do Coolify, `/data/coolify/proxy/dynamic/openwa-escola.yaml`); a
