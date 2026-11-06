@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -201,7 +202,12 @@ export function CobrancaClient({ ano, alunos, resumo, duplicidades = [] }) {
       <PageHeader
         title="Cobrança"
         subtitle={`${resumo.totalAlunos} alunos com contrato aberto em ${ano}`}
-      />
+      >
+        <Link href="/dashboard/cobranca/whatsapp" className={buttonVariants({ variant: "outline" })}>
+          <MessageCircle className="h-4 w-4" />
+          WhatsApp automático
+        </Link>
+      </PageHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <SummaryCard
