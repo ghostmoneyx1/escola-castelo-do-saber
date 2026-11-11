@@ -65,6 +65,7 @@ export const DOCUMENT_TYPES = [
   "Atestado de Pagamento",
   "Atestado de Quitação de Débito",
   "Atestado de Frequência",
+  "Atestado de Comparecimento",
 ];
 
 export const GENDERS = ["Masculino", "Feminino", "Outro"];

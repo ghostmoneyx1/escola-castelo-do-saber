@@ -2,6 +2,7 @@ import { pdf } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/client";
 import { AtestadoMatricula } from "./atestado-matricula";
 import { AtestadoFrequencia } from "./atestado-frequencia";
+import { AtestadoComparecimento } from "./atestado-comparecimento";
 import { AtestadoTransferencia } from "./atestado-transferencia";
 import { AtestadoPagamento, AtestadoQuitacao } from "./atestado-pagamento";
 import { HistoricoEscolar } from "./historico-escolar";
@@ -70,7 +71,7 @@ async function fetchStudentData(studentId, options = {}) {
 }
 
 function getDocumentComponent(type, data) {
-  const { student, guardians, grades, payments, unit, logoSrc, evaluation, semester } = data;
+  const { student, guardians, grades, payments, unit, logoSrc, evaluation, semester, details } = data;
 
   switch (type) {
     case "Atestado de Matrícula":
@@ -78,6 +79,9 @@ function getDocumentComponent(type, data) {
 
     case "Atestado de Frequência":
       return AtestadoFrequencia({ student, guardians, unit, logoSrc });
+
+    case "Atestado de Comparecimento":
+      return AtestadoComparecimento({ student, guardians, unit, logoSrc, details });
 
     case "Atestado de Transferência":
       return AtestadoTransferencia({ student, guardians, unit, logoSrc });
@@ -115,7 +119,7 @@ async function fetchLogoBase64() {
 
 export async function generateDocument(studentId, type, options = {}) {
   const [data, logoSrc] = await Promise.all([fetchStudentData(studentId, options), fetchLogoBase64()]);
-  const component = getDocumentComponent(type, { ...data, logoSrc, semester: options.semester });
+  const component = getDocumentComponent(type, { ...data, logoSrc, semester: options.semester, details: options });
   const blob = await pdf(component).toBlob();
 
   // Ensure Blob is explicitly typed
