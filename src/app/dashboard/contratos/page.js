@@ -159,7 +159,7 @@ export default function ContratosPage() {
                         <td className="px-5 py-3.5 text-muted-foreground">Dia {contract.due_day}</td>
                         <td className="px-5 py-3.5">
                           <span className="text-emerald-600 font-semibold">{pagas}</span>
-                          <span className="text-muted-foreground">/12</span>
+                          <span className="text-muted-foreground">/{insts.length}</span>
                         </td>
                         <td className="px-5 py-3.5">
                           {atrasadas > 0

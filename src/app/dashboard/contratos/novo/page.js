@@ -13,17 +13,12 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Save, Loader2, FileText } from "lucide-react";
 import Link from "next/link";
+import { Checkbox } from "@/components/ui/checkbox";
 import { MONTHS } from "@/lib/constants";
+import { TODOS_OS_MESES, calcDueDate, montarParcelas } from "@/lib/mensalidades/meses";
 
 function fmt(v) {
   return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
-}
-
-function calcDueDate(year, month, day) {
-  // Clamp day to last day of month
-  const lastDay = new Date(year, month, 0).getDate();
-  const d = Math.min(day, lastDay);
-  return `${year}-${String(month).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 }
 
 export default function NovoContratoPage() {
@@ -34,6 +29,7 @@ export default function NovoContratoPage() {
   const [studentSearch, setStudentSearch] = useState("");
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState("");
+  const [meses, setMeses]       = useState(() => new Set(TODOS_OS_MESES));
 
   const [form, setForm] = useState({
     student_id:     "",
@@ -56,7 +52,15 @@ export default function NovoContratoPage() {
     setForm(p => ({ ...p, [field]: value }));
   }
 
-  // Preview das 12 parcelas
+  function toggleMes(month) {
+    setMeses(prev => {
+      const next = new Set(prev);
+      if (next.has(month)) next.delete(month);
+      else next.add(month);
+      return next;
+    });
+  }
+
   const year   = parseInt(form.year)  || currentYear;
   const day    = parseInt(form.due_day) || 10;
   const amount = parseFloat(form.monthly_amount) || 0;
@@ -72,6 +76,7 @@ export default function NovoContratoPage() {
     setError("");
     if (!form.student_id)     return setError("Selecione um aluno.");
     if (!form.monthly_amount) return setError("Informe o valor da mensalidade.");
+    if (meses.size === 0)     return setError("Marque pelo menos um mês.");
 
     setSaving(true);
     const supabase = createClient();
@@ -97,16 +102,14 @@ export default function NovoContratoPage() {
       return;
     }
 
-    // Gera as 12 parcelas
-    const installments = MONTHS.map((_, i) => ({
-      contract_id: contract.id,
-      student_id:  form.student_id,
-      month:       i + 1,
+    const installments = montarParcelas({
+      contractId: contract.id,
+      studentId:  form.student_id,
       year,
-      due_date:    calcDueDate(year, i + 1, day),
+      dueDay:     day,
       amount,
-      status:      "A vencer",
-    }));
+      meses,
+    });
 
     const { error: instErr } = await supabase.from("installments").insert(installments);
     if (instErr) {
@@ -134,7 +137,7 @@ export default function NovoContratoPage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <PageHeader title="Novo Contrato" subtitle="Defina o valor e o sistema gera as 12 parcelas e os links de pagamento">
+      <PageHeader title="Novo Contrato" subtitle="Defina o valor, escolha os meses e o sistema gera as parcelas e os links de pagamento">
         <Button asChild variant="outline" size="sm">
           <Link href="/dashboard/contratos"><ArrowLeft className="h-4 w-4 mr-2" />Voltar</Link>
         </Button>
@@ -193,19 +196,37 @@ export default function NovoContratoPage() {
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <FileText className="h-4 w-4 text-primary" />
-              Preview — 12 parcelas geradas automaticamente
+              Meses cobrados — {meses.size} parcela{meses.size === 1 ? "" : "s"}
             </h2>
-            {amount > 0 && (
-              <span className="text-xs text-muted-foreground font-medium">
-                Total: R$ {fmt(amount * 12)}
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMeses(meses.size === 12 ? new Set() : new Set(TODOS_OS_MESES))}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                {meses.size === 12 ? "Desmarcar todos" : "Marcar todos"}
+              </button>
+              {amount > 0 && (
+                <span className="text-xs text-muted-foreground font-medium">
+                  Total: R$ {fmt(amount * meses.size)}
+                </span>
+              )}
+            </div>
           </div>
           <div className="divide-y divide-border">
-            {preview.map((p, i) => (
-              <div key={i} className="flex items-center justify-between px-5 py-3">
+            {preview.map((p) => (
+              <div
+                key={p.month}
+                onClick={() => toggleMes(p.month)}
+                className={`flex items-center justify-between px-5 py-3 cursor-pointer ${meses.has(p.month) ? "" : "opacity-50"}`}
+              >
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}</span>
+                  <Checkbox
+                    checked={meses.has(p.month)}
+                    onCheckedChange={() => toggleMes(p.month)}
+                    onClick={e => e.stopPropagation()}
+                    aria-label={`${p.label}/${form.year}`}
+                  />
                   <span className="text-sm font-medium text-foreground">{p.label}/{form.year}</span>
                 </div>
                 <div className="flex items-center gap-4">
@@ -213,7 +234,7 @@ export default function NovoContratoPage() {
                     Vence: {p.due_date ? new Date(p.due_date + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
                   </span>
                   <span className="text-sm font-semibold font-heading text-foreground">
-                    {amount > 0 ? `R$ ${fmt(amount)}` : "—"}
+                    {amount > 0 && meses.has(p.month) ? `R$ ${fmt(amount)}` : "—"}
                   </span>
                 </div>
               </div>
