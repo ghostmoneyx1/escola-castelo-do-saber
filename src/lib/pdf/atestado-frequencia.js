@@ -3,8 +3,9 @@ import { baseStyles, formatDate } from "./styles";
 import { DocumentHeader } from "./header";
 import { DocumentFooter, Signature } from "./footer";
 import { birthText, filiacaoText, resolveGuardians } from "./student-info";
+import { formatPercentual } from "@/lib/frequencia/percentual";
 
-export function AtestadoFrequencia({ student, guardians, unit, logoSrc }) {
+export function AtestadoFrequencia({ student, guardians, unit, logoSrc, attendance }) {
   const parentes = resolveGuardians(guardians);
 
   return (
@@ -28,7 +29,16 @@ export function AtestadoFrequencia({ student, guardians, unit, logoSrc }) {
             {student.className || "___"}
           </Text>
           {" "}{student.level === "Educação Infantil" ? "da Educação Infantil" : "do Ensino Fundamental I"}, no
-          ano letivo de {new Date().getFullYear()}.
+          ano letivo de {new Date().getFullYear()}
+          {attendance?.dias ? (
+            <>
+              , com frequência de{" "}
+              <Text style={baseStyles.bold}>{formatPercentual(attendance.percentual)}</Text>
+              {" "}({attendance.presencas} presença{attendance.presencas === 1 ? "" : "s"} em{" "}
+              {attendance.dias} dia{attendance.dias === 1 ? "" : "s"} letivo{attendance.dias === 1 ? "" : "s"} registrado{attendance.dias === 1 ? "" : "s"} até esta data)
+            </>
+          ) : null}
+          .
         </Text>
 
         <Text style={baseStyles.dateText}>{formatDate()}</Text>

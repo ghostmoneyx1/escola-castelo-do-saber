@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -30,6 +31,7 @@ import {
   XCircle,
   Link2,
   Check,
+  BarChart3,
 } from "lucide-react";
 
 export default function FrequenciaPage() {
@@ -160,6 +162,13 @@ export default function FrequenciaPage() {
         title="Controle de Frequência"
         subtitle="Registre a presença dos alunos por turma e data"
       >
+        <Link
+          href="/dashboard/frequencia/relatorio"
+          className={buttonVariants({ variant: "outline", size: "sm", className: "whitespace-nowrap" })}
+        >
+          <BarChart3 className="h-4 w-4 mr-1.5" />
+          Relatório de frequência
+        </Link>
         {selectedClass && (
           <Button variant="outline" size="sm" onClick={copyLink} className="whitespace-nowrap">
             {copied ? <Check className="h-4 w-4 mr-1.5 text-emerald-600" /> : <Link2 className="h-4 w-4 mr-1.5" />}
