@@ -11,6 +11,7 @@ const routeNames = {
   "/dashboard/turmas": "Turmas",
   "/dashboard/boletins": "Boletins",
   "/dashboard/frequencia": "Frequência",
+  "/dashboard/frequencia/relatorio": "Relatório",
   "/dashboard/documentos": "Documentos",
   "/dashboard/financeiro": "Financeiro",
   "/dashboard/cobranca": "Cobrança",

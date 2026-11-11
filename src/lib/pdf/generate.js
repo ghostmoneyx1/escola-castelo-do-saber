@@ -6,12 +6,14 @@ import { AtestadoTransferencia } from "./atestado-transferencia";
 import { AtestadoPagamento, AtestadoQuitacao } from "./atestado-pagamento";
 import { HistoricoEscolar } from "./historico-escolar";
 import { BoletimInfantil } from "./boletim-infantil";
+import { RelatorioFrequencia } from "./relatorio-frequencia";
+import { resumirAluno } from "@/lib/frequencia/percentual";
 
 async function fetchStudentData(studentId, options = {}) {
   const supabase = createClient();
   const year = new Date().getFullYear();
 
-  const [studentRes, guardiansRes, gradesRes, paymentsRes, evalRes] = await Promise.all([
+  const [studentRes, guardiansRes, gradesRes, paymentsRes, evalRes, attendanceRes] = await Promise.all([
     supabase
       .from("students")
       .select("*, classes(name, grade, shift), units(name)")
@@ -41,6 +43,14 @@ async function fetchStudentData(studentId, options = {}) {
           .eq("year", year)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    options.withAttendance
+      ? supabase
+          .from("attendance")
+          .select("present, date")
+          .eq("student_id", studentId)
+          .gte("date", `${year}-01-01`)
+          .lte("date", `${year}-12-31`)
+      : Promise.resolve({ data: null }),
   ]);
 
   const student = studentRes.data;
@@ -66,18 +76,20 @@ async function fetchStudentData(studentId, options = {}) {
   const unit = student.units?.name || "Matriz";
   const evaluation = evalRes?.data || null;
 
-  return { student, guardians, grades, payments, unit, evaluation };
+  const attendance = attendanceRes?.data ? resumirAluno(attendanceRes.data) : null;
+
+  return { student, guardians, grades, payments, unit, evaluation, attendance };
 }
 
 function getDocumentComponent(type, data) {
-  const { student, guardians, grades, payments, unit, logoSrc, evaluation, semester } = data;
+  const { student, guardians, grades, payments, unit, logoSrc, evaluation, semester, attendance } = data;
 
   switch (type) {
     case "Atestado de Matrícula":
       return AtestadoMatricula({ student, guardians, unit, logoSrc });
 
     case "Atestado de Frequência":
-      return AtestadoFrequencia({ student, guardians, unit, logoSrc });
+      return AtestadoFrequencia({ student, guardians, unit, logoSrc, attendance });
 
     case "Atestado de Transferência":
       return AtestadoTransferencia({ student, guardians, unit, logoSrc });
@@ -113,45 +125,45 @@ async function fetchLogoBase64() {
   }
 }
 
-export async function generateDocument(studentId, type, options = {}) {
-  const [data, logoSrc] = await Promise.all([fetchStudentData(studentId, options), fetchLogoBase64()]);
-  const component = getDocumentComponent(type, { ...data, logoSrc, semester: options.semester });
+function sanitizeName(str) {
+  if (!str) return "Documento";
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/_$/, "");
+}
+
+async function downloadPdf(component, fileName) {
   const blob = await pdf(component).toBlob();
-
-  // Ensure Blob is explicitly typed
   const pdfBlob = new Blob([blob], { type: "application/pdf" });
-
-  // Sanitize filename to avoid OS weirdness
-  const sanitizeName = (str) => {
-    if (!str) return "Documento";
-    return str
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "") // remove accents
-      .replace(/[^a-zA-Z0-9]/g, "_") // replace non-alphanumeric with underscore
-      .replace(/_+/g, "_") // remove duplicate underscores
-      .replace(/_$/, ""); // remove trailing underscore
-  };
-
-  const safeType = sanitizeName(type);
-  const safeName = sanitizeName(data.student?.name);
-  const fileName = `${safeType}_${safeName}.pdf`;
-
-  // Trigger download properly
   const url = window.URL.createObjectURL(pdfBlob);
 
   const link = document.createElement("a");
   link.style.display = "none";
   link.href = url;
   link.setAttribute("download", fileName);
-
   document.body.appendChild(link);
   link.click();
-  
-  // Cleanup
+
+  // Revogar cedo demais cancela o download em alguns navegadores.
   setTimeout(() => {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
-  }, 1000); // Wait longer before revoke
+  }, 1000);
+}
 
+export async function generateDocument(studentId, type, options = {}) {
+  const fetchOptions = { ...options, withAttendance: type === "Atestado de Frequência" };
+  const [data, logoSrc] = await Promise.all([fetchStudentData(studentId, fetchOptions), fetchLogoBase64()]);
+  const component = getDocumentComponent(type, { ...data, logoSrc, semester: options.semester });
+  await downloadPdf(component, `${sanitizeName(type)}_${sanitizeName(data.student?.name)}.pdf`);
   return { success: true };
+}
+
+export async function generateRelatorioFrequencia({ turma, unit, de, ate, relatorio }) {
+  const logoSrc = await fetchLogoBase64();
+  const component = RelatorioFrequencia({ turma, unit, de, ate, relatorio, logoSrc });
+  await downloadPdf(component, `Relatorio_de_Frequencia_${sanitizeName(turma)}_${de}_a_${ate}.pdf`);
 }
