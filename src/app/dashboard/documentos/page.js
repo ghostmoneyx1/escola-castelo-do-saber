@@ -42,6 +42,16 @@ import {
 import { DOCUMENT_TYPES } from "@/lib/constants";
 import { generateDocument } from "@/lib/pdf/generate";
 
+const COMPARECIMENTO = "Atestado de Comparecimento";
+
+const EMPTY_DETAILS = {
+  attendeeName: "",
+  date: new Date().toISOString().split("T")[0],
+  startTime: "",
+  endTime: "",
+  reason: "",
+};
+
 export default function DocumentosPage() {
   const [documents, setDocuments] = useState([]);
   const [students, setStudents] = useState([]);
@@ -50,6 +60,8 @@ export default function DocumentosPage() {
   const [generateDialog, setGenerateDialog] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [newDoc, setNewDoc] = useState({ student_id: "", type: "" });
+  const [details, setDetails] = useState(EMPTY_DETAILS);
+  const [studentGuardians, setStudentGuardians] = useState([]);
   const [studentSearch, setStudentSearch] = useState("");
   const [downloading, setDownloading] = useState(null);
 
@@ -79,27 +91,52 @@ export default function DocumentosPage() {
     setStudents(data || []);
   }
 
+  const isComparecimento = newDoc.type === COMPARECIMENTO;
+
+  useEffect(() => {
+    if (!isComparecimento || !newDoc.student_id) {
+      setStudentGuardians([]);
+      return;
+    }
+    async function loadGuardians() {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("student_guardians")
+        .select("guardians(name)")
+        .eq("student_id", newDoc.student_id);
+      const names = (data || []).map((sg) => sg.guardians?.name).filter(Boolean);
+      setStudentGuardians(names);
+      setDetails((prev) => (prev.attendeeName ? prev : { ...prev, attendeeName: names[0] || "" }));
+    }
+    loadGuardians();
+  }, [isComparecimento, newDoc.student_id]);
+
+  function closeGenerateDialog() {
+    setGenerateDialog(false);
+    setNewDoc({ student_id: "", type: "" });
+    setDetails(EMPTY_DETAILS);
+  }
+
   async function handleGenerate() {
     if (!newDoc.student_id || !newDoc.type) return;
     setGenerating(true);
+    const docDetails = isComparecimento ? details : null;
 
     try {
-      // Generate and download PDF
-      await generateDocument(newDoc.student_id, newDoc.type);
+      await generateDocument(newDoc.student_id, newDoc.type, docDetails || {});
 
-      // Save record to database
       const supabase = createClient();
       await supabase.from("documents").insert({
         student_id: newDoc.student_id,
         type: newDoc.type,
         status: "Emitido",
+        ...(docDetails && { details: docDetails }),
       });
     } catch (err) {
       console.error("Erro ao gerar documento:", err);
     }
 
-    setGenerateDialog(false);
-    setNewDoc({ student_id: "", type: "" });
+    closeGenerateDialog();
     setGenerating(false);
     loadDocuments();
   }
@@ -107,7 +144,7 @@ export default function DocumentosPage() {
   async function handleDownload(doc) {
     setDownloading(doc.id);
     try {
-      await generateDocument(doc.student_id, doc.type);
+      await generateDocument(doc.student_id, doc.type, doc.details || {});
     } catch (err) {
       console.error("Erro ao baixar documento:", err);
     }
@@ -141,7 +178,7 @@ export default function DocumentosPage() {
       </PageHeader>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-4">
         {DOCUMENT_TYPES.map((type, i) => {
           const count = documents.filter((d) => d.type === type).length;
           return (
@@ -239,7 +276,7 @@ export default function DocumentosPage() {
       </div>
 
       {/* Generate Dialog */}
-      <Dialog open={generateDialog} onOpenChange={(v) => !generating && setGenerateDialog(v)}>
+      <Dialog open={generateDialog} onOpenChange={(v) => !generating && (v ? setGenerateDialog(true) : closeGenerateDialog())}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -271,8 +308,47 @@ export default function DocumentosPage() {
               </Select>
             </div>
           </div>
+          {isComparecimento && (
+            <div className="space-y-4 border-t border-border pt-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Quem compareceu</label>
+                <Input
+                  list="comparecimento-responsaveis"
+                  value={details.attendeeName}
+                  onChange={(e) => setDetails((p) => ({ ...p, attendeeName: e.target.value }))}
+                  placeholder="Nome do responsável"
+                />
+                <datalist id="comparecimento-responsaveis">
+                  {studentGuardians.map((name) => <option key={name} value={name} />)}
+                </datalist>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Data</label>
+                  <Input type="date" value={details.date} onChange={(e) => setDetails((p) => ({ ...p, date: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Das</label>
+                  <Input type="time" value={details.startTime} onChange={(e) => setDetails((p) => ({ ...p, startTime: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Às</label>
+                  <Input type="time" value={details.endTime} onChange={(e) => setDetails((p) => ({ ...p, endTime: e.target.value }))} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Motivo (opcional)</label>
+                <Input
+                  value={details.reason}
+                  onChange={(e) => setDetails((p) => ({ ...p, reason: e.target.value }))}
+                  placeholder="Ex.: reunião de pais e mestres"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Campo em branco sai como traço no PDF, para preencher à mão.</p>
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setGenerateDialog(false)} disabled={generating}>Cancelar</Button>
+            <Button variant="outline" onClick={closeGenerateDialog} disabled={generating}>Cancelar</Button>
             <Button onClick={handleGenerate} disabled={generating || !newDoc.student_id || !newDoc.type} size="sm">
               {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FilePlus className="h-4 w-4 mr-2" />}
               Gerar Documento
