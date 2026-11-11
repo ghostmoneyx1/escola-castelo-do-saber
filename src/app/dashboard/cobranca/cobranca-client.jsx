@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Search, AlertTriangle, Clock, CheckCircle, MessageCircle, Copy, Check,
-  QrCode, PhoneOff, Link2, Loader2,
+  QrCode, PhoneOff, Link2, Loader2, ClipboardCheck,
 } from "lucide-react";
 import { montarCobrancaManual, linkWhatsapp } from "@/lib/mensalidades/whatsapp";
 
@@ -203,6 +203,10 @@ export function CobrancaClient({ ano, alunos, resumo, duplicidades = [] }) {
         title="Cobrança"
         subtitle={`${resumo.totalAlunos} alunos com contrato aberto em ${ano}`}
       >
+        <Link href="/dashboard/cobranca/inicio-do-ano" className={buttonVariants({ variant: "outline" })}>
+          <ClipboardCheck className="h-4 w-4" />
+          Início do ano letivo
+        </Link>
         <Link href="/dashboard/cobranca/whatsapp" className={buttonVariants({ variant: "outline" })}>
           <MessageCircle className="h-4 w-4" />
           WhatsApp automático
