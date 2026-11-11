@@ -15,10 +15,11 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, Loader2, ThumbsUp, Pencil, Save, CheckCircle, Clock, AlertTriangle, Trash2,
-  Link2, ExternalLink,
+  Link2, ExternalLink, Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { MONTHS } from "@/lib/constants";
+import { calcDueDate, mesesLivres } from "@/lib/mensalidades/meses";
 
 function fmt(v) {
   return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
@@ -49,6 +50,9 @@ export default function ContratoDetailPage() {
   const [saving, setSaving]           = useState(false);
   const [gerandoLinks, setGerandoLinks] = useState(false);
   const [avisoLinks, setAvisoLinks]   = useState("");
+  const [addDialog, setAddDialog]     = useState(false);
+  const [newInst, setNewInst]         = useState(null);
+  const [erroParcela, setErroParcela] = useState("");
 
   async function load() {
     const supabase = createClient();
@@ -88,6 +92,54 @@ export default function ContratoDetailPage() {
       setAvisoLinks(e.message);
     }
     setGerandoLinks(false);
+    load();
+  }
+
+  function openAdd() {
+    const month = mesesLivres(installments)[0];
+    setNewInst({
+      month:    String(month),
+      amount:   String(contract.monthly_amount),
+      due_date: calcDueDate(contract.year, month, contract.due_day),
+    });
+    setErroParcela("");
+    setAddDialog(true);
+  }
+
+  function changeNewMonth(value) {
+    setNewInst(p => ({ ...p, month: value, due_date: calcDueDate(contract.year, Number(value), contract.due_day) }));
+  }
+
+  async function handleAdd() {
+    setSaving(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("installments").insert({
+      contract_id: id,
+      student_id:  contract.student_id,
+      month:       Number(newInst.month),
+      year:        contract.year,
+      due_date:    newInst.due_date,
+      amount:      parseFloat(newInst.amount) || 0,
+      status:      "A vencer",
+    });
+    setSaving(false);
+    if (error) {
+      setErroParcela(error.code === "23505" ? "Este mês já tem parcela." : `Erro ao adicionar: ${error.message}`);
+      return;
+    }
+    setAddDialog(false);
+    await gerarLinks();
+  }
+
+  async function handleRemove(inst) {
+    const mes = `${MONTHS[inst.month - 1]}/${inst.year}`;
+    const aviso = inst.payment_link
+      ? `\n\nEsta parcela já tem link de pagamento. Se o responsável pagar por um link que já recebeu, o pagamento não baixa sozinho e fica registrado como "parcela não encontrada".`
+      : "";
+    if (!confirm(`Remover a parcela de ${mes}?${aviso}`)) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("installments").delete().eq("id", inst.id).neq("status", "Pago");
+    if (error) setAvisoLinks(`Erro ao remover ${mes}: ${error.message}`);
     load();
   }
 
@@ -140,6 +192,7 @@ export default function ContratoDetailPage() {
   const aVencer   = installments.filter(i => calcStatus(i) === "A vencer").length;
   const totalPago = installments.filter(i => i.status === "Pago").reduce((a, i) => a + Number(i.amount), 0);
   const totalAberto = installments.filter(i => i.status !== "Pago").reduce((a, i) => a + Number(i.amount), 0);
+  const livres    = mesesLivres(installments);
   const semLink   = installments.filter(i => i.status !== "Pago" && (!i.payment_link || i.payment_link_source === "manual")).length;
 
   return (
@@ -206,8 +259,19 @@ export default function ContratoDetailPage() {
       <div className="bg-white border border-border rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Parcelas — {contract.year}</h2>
-          <span className="text-xs text-muted-foreground">R$ {fmt(contract.monthly_amount)}/mês</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">R$ {fmt(contract.monthly_amount)}/mês</span>
+            {livres.length > 0 && (
+              <Button variant="outline" size="sm" onClick={openAdd}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                Adicionar mês
+              </Button>
+            )}
+          </div>
         </div>
+        {installments.length === 0 && (
+          <p className="px-5 py-6 text-sm text-muted-foreground">Nenhuma parcela neste contrato.</p>
+        )}
         <div className="divide-y divide-border">
           {installments.map((inst, i) => {
             const status  = calcStatus(inst);
@@ -262,16 +326,67 @@ export default function ContratoDetailPage() {
                   )}
                   <button
                     onClick={() => openEdit(inst)}
+                    title="Editar parcela"
                     className="p-1.5 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-colors"
                   >
                     <Pencil className="h-4 w-4" />
                   </button>
+                  {inst.status !== "Pago" && (
+                    <button
+                      onClick={() => handleRemove(inst)}
+                      title="Remover parcela"
+                      className="p-1.5 text-muted-foreground hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Dialog adicionar mês */}
+      <Dialog open={addDialog} onOpenChange={v => !saving && setAddDialog(v)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar mês</DialogTitle>
+          </DialogHeader>
+          {newInst && (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Mês</Label>
+                <Select value={newInst.month} onValueChange={changeNewMonth}>
+                  <SelectTrigger><SelectValue>{`${MONTHS[Number(newInst.month) - 1]}/${contract.year}`}</SelectValue></SelectTrigger>
+                  <SelectContent>
+                    {livres.map(m => (
+                      <SelectItem key={m} value={String(m)}>{MONTHS[m - 1]}/{contract.year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Valor (R$)</Label>
+                <Input type="number" step="0.01" value={newInst.amount} onChange={e => setNewInst(p => ({ ...p, amount: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Data de vencimento</Label>
+                <Input type="date" value={newInst.due_date} onChange={e => setNewInst(p => ({ ...p, due_date: e.target.value }))} />
+              </div>
+              <p className="text-xs text-muted-foreground">O link de pagamento é gerado ao salvar.</p>
+              {erroParcela && <p className="text-sm text-red-600">{erroParcela}</p>}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddDialog(false)} disabled={saving}>Cancelar</Button>
+            <Button onClick={handleAdd} disabled={saving || !newInst?.due_date}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+              Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog editar parcela */}
       <Dialog open={editDialog} onOpenChange={v => !saving && setEditDialog(v)}>

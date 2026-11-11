@@ -123,10 +123,13 @@ CREATE TABLE documents (
     'Atestado de Transferência',
     'Atestado de Pagamento',
     'Atestado de Quitação de Débito',
-    'Atestado de Frequência'
+    'Atestado de Frequência',
+    'Atestado de Comparecimento'
   )),
   status TEXT NOT NULL DEFAULT 'Emitido' CHECK (status IN ('Emitido', 'Pendente')),
   file_path TEXT,
+  -- Dados digitados na emissão (quem compareceu, data, horário), pra baixar de novo igual.
+  details JSONB,
   generated_at TIMESTAMPTZ DEFAULT now(),
   created_at TIMESTAMPTZ DEFAULT now()
 );
