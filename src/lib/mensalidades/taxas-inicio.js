@@ -20,6 +20,18 @@ export function nivelDaTurma(grade) {
   return null;
 }
 
+// Quem ainda não rematriculou entra pela turma do ano anterior: o Grupo 05
+// vira 1º Ano, então o livro já é o do Fundamental.
+export function nivelNoAnoSeguinte(grade) {
+  if (/grupo\s*0?5\b/i.test(grade || "")) return "Fundamental";
+  return nivelDaTurma(grade);
+}
+
+// A escola vai até o 5º Ano: quem está nele sai e não paga o início do ano.
+export function terminaNaEscola(grade) {
+  return /5\s*[ºo°]\s*ano/i.test(grade || "");
+}
+
 // Sem turma não dá pra saber o nível: o livro fica sem valor sugerido
 // em vez de chutar um dos dois.
 export function valorPadrao(key, nivel) {
@@ -29,17 +41,24 @@ export function valorPadrao(key, nivel) {
   return taxa.valor.Infantil === taxa.valor.Fundamental ? taxa.valor.Infantil : null;
 }
 
-export function montarLinhas(matriculas, registros) {
+// naoRematriculados: matrículas do ano anterior de quem ainda não tem
+// matrícula no ano mostrado (já sem os formandos do 5º Ano).
+export function montarLinhas(matriculas, registros, naoRematriculados = []) {
   const porAluno = new Map();
   for (const r of registros) {
     if (!porAluno.has(r.student_id)) porAluno.set(r.student_id, {});
     porAluno.get(r.student_id)[r.item] = r;
   }
 
-  return matriculas
+  const todas = [
+    ...matriculas.map((m) => ({ ...m, rematriculado: true })),
+    ...naoRematriculados.map((m) => ({ ...m, rematriculado: false })),
+  ];
+
+  return todas
     .filter((m) => m.students)
     .map((m) => {
-      const nivel = nivelDaTurma(m.classes?.grade);
+      const nivel = m.rematriculado ? nivelDaTurma(m.classes?.grade) : nivelNoAnoSeguinte(m.classes?.grade);
       const salvos = porAluno.get(m.student_id) || {};
       const itens = {};
       for (const t of TAXAS_INICIO) {
@@ -55,7 +74,10 @@ export function montarLinhas(matriculas, registros) {
         studentId: m.student_id,
         name: m.students.name,
         classId: m.class_id,
-        turma: m.classes ? `${m.classes.grade} - ${m.classes.name}` : "Sem turma",
+        turma: m.classes
+          ? `${m.classes.grade} - ${m.classes.name}${m.rematriculado ? "" : ` (${m.classes.year})`}`
+          : "Sem turma",
+        rematriculado: m.rematriculado,
         tipo: m.enrollment_type,
         nivel,
         itens,

@@ -21,6 +21,13 @@ import { STATUS_TAXA, TAXAS_INICIO, totaisPorItem } from "@/lib/mensalidades/tax
 const HEAD = "text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-5 py-3.5 text-left";
 const FORMAS = ["Pix", "Dinheiro", "Cartão"];
 const TODOS = "todos";
+const MATRICULADOS = "matriculados";
+const NAO_REMATRICULADOS = "nao-rematriculados";
+const MATRICULA_LABEL = {
+  [TODOS]: "Todos os alunos",
+  [MATRICULADOS]: "Matriculados",
+  [NAO_REMATRICULADOS]: "Não rematriculados",
+};
 
 const CHIP = {
   Pago:       "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -44,6 +51,7 @@ export function InicioDoAnoClient({ ano, linhas }) {
   const [turma, setTurma] = useState(TODOS);
   const [tipo, setTipo] = useState(TODOS);
   const [soPendentes, setSoPendentes] = useState(false);
+  const [matricula, setMatricula] = useState(TODOS);
   const [edit, setEdit] = useState(null);
   const [saving, setSaving] = useState(false);
   const [erro, setErro] = useState("");
@@ -59,8 +67,11 @@ export function InicioDoAnoClient({ ano, linhas }) {
     (!busca.trim() || l.name.toLowerCase().includes(busca.trim().toLowerCase())) &&
     (turma === TODOS || l.classId === turma) &&
     (tipo === TODOS || l.tipo === tipo) &&
-    (!soPendentes || l.temPendencia),
+    (!soPendentes || l.temPendencia) &&
+    (matricula === TODOS || l.rematriculado === (matricula === MATRICULADOS)),
   );
+  const qtdMatriculados = linhas.filter((l) => l.rematriculado).length;
+  const qtdNaoRematriculados = linhas.length - qtdMatriculados;
   const totais = totaisPorItem(filtradas);
 
   function abrir(linha, taxa) {
@@ -109,7 +120,7 @@ export function InicioDoAnoClient({ ano, linhas }) {
     <div className="space-y-6">
       <PageHeader
         title="Início do ano letivo"
-        subtitle={`Uniforme, material, pacote experiência e livro + matrícula — ${linhas.length} aluno${linhas.length === 1 ? "" : "s"} matriculado${linhas.length === 1 ? "" : "s"} em ${ano}`}
+        subtitle={`Uniforme, material, pacote experiência e livro + matrícula — ${qtdMatriculados} matriculado${qtdMatriculados === 1 ? "" : "s"} em ${ano}${qtdNaoRematriculados ? ` e ${qtdNaoRematriculados} de ${ano - 1} ainda sem rematrícula` : ""}`}
       >
         <AnoLetivoSelect />
       </PageHeader>
@@ -154,6 +165,14 @@ export function InicioDoAnoClient({ ano, linhas }) {
             {tipos.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={matricula} onValueChange={setMatricula}>
+          <SelectTrigger className="bg-white border-none shadow-none w-[200px]">
+            <SelectValue>{MATRICULA_LABEL[matricula]}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(MATRICULA_LABEL).map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Button variant={soPendentes ? "default" : "outline"} size="sm" onClick={() => setSoPendentes((v) => !v)}>
           Só com pendência
         </Button>
@@ -166,7 +185,7 @@ export function InicioDoAnoClient({ ano, linhas }) {
             <EmptyState
               icon={ClipboardCheck}
               title="Nenhum aluno encontrado"
-              description={linhas.length === 0 ? `Nenhuma matrícula ativa em ${ano}` : "Ajuste os filtros"}
+              description={linhas.length === 0 ? `Nenhuma matrícula ativa em ${ano} ou ${ano - 1}` : "Ajuste os filtros"}
             />
           </div>
         ) : (
@@ -183,7 +202,14 @@ export function InicioDoAnoClient({ ano, linhas }) {
                 {filtradas.map((l) => (
                   <tr key={l.studentId} className="border-b border-border">
                     <td className="px-5 py-3.5">
-                      <p className="font-medium text-foreground">{l.name}</p>
+                      <p className="font-medium text-foreground flex items-center gap-2">
+                        {l.name}
+                        {!l.rematriculado && (
+                          <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                            Não rematriculado
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-muted-foreground">{l.turma}{l.tipo ? ` · ${l.tipo}` : ""}</p>
                     </td>
                     {TAXAS_INICIO.map((t) => {

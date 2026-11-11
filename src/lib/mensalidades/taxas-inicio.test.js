@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nivelDaTurma, valorPadrao, montarLinhas, totaisPorItem } from "./taxas-inicio";
+import { nivelDaTurma, nivelNoAnoSeguinte, terminaNaEscola, valorPadrao, montarLinhas, totaisPorItem } from "./taxas-inicio";
 
 describe("nivelDaTurma", () => {
   it("Grupo é Infantil, Ano é Fundamental", () => {
@@ -46,5 +46,27 @@ describe("montarLinhas", () => {
   it("totais por item", () => {
     const uniforme = totaisPorItem(linhas).find((t) => t.key === "uniforme");
     expect(uniforme).toMatchObject({ pagos: 1, recebido: 150, pendentes: 1, aReceber: 150 });
+  });
+});
+
+describe("não rematriculados", () => {
+  it("Grupo 05 vai pro 1º Ano; 5º Ano sai da escola", () => {
+    expect(nivelNoAnoSeguinte("Grupo 05")).toBe("Fundamental");
+    expect(nivelNoAnoSeguinte("Grupo 04")).toBe("Infantil");
+    expect(nivelNoAnoSeguinte("2º Ano Ensino Fundamental")).toBe("Fundamental");
+    expect(terminaNaEscola("5º Ano Ensino Fundamental")).toBe(true);
+    expect(terminaNaEscola("4º Ano Ensino Fundamental")).toBe(false);
+  });
+
+  it("entram na lista marcados, com a turma do ano anterior", () => {
+    const linhas = montarLinhas(
+      [{ student_id: "a", class_id: "t1", students: { name: "Ana" }, classes: { grade: "Grupo 03", name: "B", year: 2027 } }],
+      [{ id: "r1", student_id: "c", item: "uniforme", status: "Pago", amount: "150.00" }],
+      [{ student_id: "c", class_id: "t9", students: { name: "Caio" }, classes: { grade: "Grupo 05", name: "A", year: 2026 } }],
+    );
+    expect(linhas.map((l) => [l.name, l.rematriculado])).toEqual([["Ana", true], ["Caio", false]]);
+    expect(linhas[1].turma).toBe("Grupo 05 - A (2026)");
+    expect(linhas[1].itens.livro_matricula.amount).toBe(350);
+    expect(linhas[1].itens.uniforme.status).toBe("Pago");
   });
 });

@@ -2,7 +2,7 @@ import { AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { anoLetivo } from "@/lib/constants";
-import { montarLinhas } from "@/lib/mensalidades/taxas-inicio";
+import { montarLinhas, terminaNaEscola } from "@/lib/mensalidades/taxas-inicio";
 import { InicioDoAnoClient } from "./inicio-do-ano-client";
 
 export const dynamic = "force-dynamic";
@@ -10,17 +10,20 @@ export const dynamic = "force-dynamic";
 export default async function InicioDoAnoPage({ searchParams }) {
   const ano = anoLetivo(searchParams?.ano);
   const supabase = await createClient();
-  const [matriculasRes, taxasRes] = await Promise.all([
+  const matriculasDoAno = (year) =>
     supabase
       .from("enrollments")
-      .select("student_id, class_id, enrollment_type, students!inner(name, status), classes(grade, name)")
-      .eq("year", ano)
+      .select("student_id, class_id, enrollment_type, students!inner(name, status), classes(grade, name, year)")
+      .eq("year", year)
       .eq("status", "Ativa")
-      .eq("students.status", "Ativo"),
+      .eq("students.status", "Ativo");
+  const [matriculasRes, anterioresRes, taxasRes] = await Promise.all([
+    matriculasDoAno(ano),
+    matriculasDoAno(ano - 1),
     supabase.from("enrollment_fees").select("*").eq("year", ano),
   ]);
 
-  const erro = matriculasRes.error || taxasRes.error;
+  const erro = matriculasRes.error || anterioresRes.error || taxasRes.error;
   if (erro) {
     return (
       <div className="space-y-6">
@@ -41,11 +44,18 @@ export default async function InicioDoAnoPage({ searchParams }) {
     );
   }
 
+  // A taxa do início do ano é paga antes da rematrícula: quem estava no ano
+  // anterior e ainda não rematriculou também aparece, menos o 5º Ano.
+  const rematriculados = new Set((matriculasRes.data || []).map((m) => m.student_id));
+  const naoRematriculados = (anterioresRes.data || []).filter(
+    (m) => !rematriculados.has(m.student_id) && !terminaNaEscola(m.classes?.grade),
+  );
+
   return (
     <InicioDoAnoClient
       key={ano}
       ano={ano}
-      linhas={montarLinhas(matriculasRes.data || [], taxasRes.data || [])}
+      linhas={montarLinhas(matriculasRes.data || [], taxasRes.data || [], naoRematriculados)}
     />
   );
 }
