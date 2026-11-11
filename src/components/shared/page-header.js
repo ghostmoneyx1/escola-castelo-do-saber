@@ -15,6 +15,7 @@ const routeNames = {
   "/dashboard/financeiro": "Financeiro",
   "/dashboard/cobranca": "Cobrança",
   "/dashboard/cobranca/whatsapp": "WhatsApp",
+  "/dashboard/cobranca/inicio-do-ano": "Início do ano",
   "/dashboard/relatorios": "Relatórios",
   "/dashboard/ferramentas": "Ferramentas",
   "/dashboard/configuracoes": "Configurações",
